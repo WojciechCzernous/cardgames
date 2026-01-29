@@ -5,8 +5,13 @@ Two players: User vs Computer (random)
 """
 
 import random
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ui import GameUI
 
 
 class Suit(Enum):
@@ -136,7 +141,8 @@ def display_hidden_cards(count: int) -> str:
 class Round:
     """A single round played to 66 points."""
     
-    def __init__(self, player_starts: bool = None):
+    def __init__(self, player_starts: bool = None, ui: "GameUI | None" = None):
+        self.ui = ui  # UI can be None for headless/testing
         self.deck = create_deck()
         random.shuffle(self.deck)
         
@@ -196,61 +202,26 @@ class Round:
 
     def clear_screen(self):
         """Clear the terminal screen."""
-        print(CLEAR, end="")
+        if self.ui:
+            from ui import TerminalUI
+            if isinstance(self.ui, TerminalUI):
+                self.ui.clear_screen()
 
-    def display_state(self, computer_card: Card | None = None, player_card: Card | None = None):
-        """Display the current game state."""
-        self.clear_screen()
-        
-        # Header with match score
-        print("=" * 50)
-        if self.match_scores:
-            print(f"    SIXTY-SIX          Match: You {self.match_scores['player']} - {self.match_scores['computer']} Computer")
-        else:
-            print("              SIXTY-SIX")
-        print("=" * 50)
-        
-        # Trump and draw pile info
-        trump_display = str(self.trump_card) if self.trump_card else f"[{colored_suit(self.trump_suit)}]"
-        if self.closed:
-            phase_info = f"CLOSED by {self.closed_by}"
-        elif self.phase == 1:
-            phase_info = "Phase 1 (free play)"
-        else:
-            phase_info = "Phase 2 (must follow)"
-        print(f"Trump: {trump_display}  |  Draw pile: {len(self.draw_pile)} cards  |  {phase_info}")
-        print(f"Score - You: {self.player_score:3d}  |  Computer: {self.computer_score:3d}")
-        print("-" * 50)
-        
-        # Last trick result
-        if self.last_trick_info:
-            print(f"Last: {self.last_trick_info}")
-        else:
-            print()
-        print()
-        
-        # Computer's hand
-        print(f"Computer: {display_hidden_cards(len(self.computer_hand))}")
-        print()
-        
-        # Table area (cards played this trick)
-        print("─" * 20 + " TABLE " + "─" * 23)
-        if computer_card:
-            print(f"  Computer played: {computer_card}")
-        else:
-            print()
-        if player_card:
-            print(f"  You played:      {player_card}")
-        else:
-            print()
-        print("─" * 50)
-        print()
-        
-        # Your hand
-        drawn_info = f"  (drew: {self.player_last_drawn})" if self.player_last_drawn else ""
-        print(f"Your hand:{drawn_info}")
-        print(display_hand(self.player_hand))
-        print()
+    def display_state(self, computer_card: Card | None = None, player_card: Card | None = None,
+                       lead_card: Card | None = None, state: "GameState | None" = None):
+        """Display the current game state via UI."""
+        if not self.ui:
+            return
+        if state is None:
+            state = self.get_game_state("player", lead_card)
+        self.ui.display_state(
+            state=state,
+            match_scores=self.match_scores,
+            computer_card=computer_card,
+            player_card=player_card,
+            last_trick_info=self.last_trick_info,
+            player_last_drawn=self.player_last_drawn
+        )
 
     def get_valid_cards(self, hand: list[Card], lead_card: Card | None) -> list[Card]:
         """Get valid cards that can be played based on current phase."""
@@ -338,20 +309,23 @@ class Round:
         """Execute an action for a player. Returns (card_played, marriage_points)."""
         hand = self.player_hand if player == "player" else self.computer_hand
         
-        if action.type == ActionType.SWAP_TRUMP:
+        # Use value comparison to avoid enum identity issues from circular imports
+        action_type = action.type.value
+        
+        if action_type == "swap_trump":
             old_trump = self.trump_card
             self.swap_nine_trump(hand)
             return None, 0
         
-        elif action.type == ActionType.CLOSE_GAME:
+        elif action_type == "close_game":
             self.closed = True
             self.closed_by = "you" if player == "player" else "computer"
             return None, 0
         
-        elif action.type == ActionType.PASS:
+        elif action_type == "pass":
             return None, 0
         
-        elif action.type == ActionType.PLAY_CARD:
+        elif action_type == "play_card":
             card = hand[action.card_index]
             hand.remove(card)
             
@@ -369,105 +343,18 @@ class Round:
 
     def player_play(self, lead_card: Card | None, computer_card: Card | None = None) -> tuple[Card, int]:
         """Let the player choose a card to play. Returns (card, marriage_points)."""
-        valid_cards = self.get_valid_cards(self.player_hand, lead_card)
-        error_msg = ""
+        if not self.ui:
+            raise RuntimeError("Cannot get player input without UI")
         
-        # Check for marriages if leading
-        marriages = self.get_marriages(self.player_hand) if lead_card is None else []
+        state = self.get_game_state("player", lead_card)
         
         while True:
-            self.display_state(computer_card=computer_card)
-            
-            if lead_card:
-                if self.phase == 1:
-                    print(f"Lead: {colored_suit(lead_card.suit)} (any card allowed)")
-                else:
-                    print(f"Must follow: {colored_suit(lead_card.suit)}  |  Valid: {display_hand(valid_cards, show_numbers=False)}")
-            else:
-                lead_msg = ">>> Your lead!"
-                if marriages:
-                    marriage_strs = [f"{colored_suit(s)} ({self.marriage_value(s)}pts)" for s in marriages]
-                    lead_msg += f"  Marriages: {', '.join(marriage_strs)}"
-                print(lead_msg)
-            
-            if error_msg:
-                print(f"\n⚠ {error_msg}")
-                error_msg = ""
-            
-            try:
-                prompt = f"\nPlay card [1-{len(self.player_hand)}]"
-                if marriages:
-                    prompt += " or [M] to announce marriage"
-                prompt += ": "
-                choice = input(prompt).strip().lower()
-                
-                # Handle marriage announcement
-                if choice == 'm' and marriages:
-                    return self.player_announce_marriage(marriages)
-                
-                idx = int(choice) - 1
-                
-                if 0 <= idx < len(self.player_hand):
-                    card = self.player_hand[idx]
-                    if card in valid_cards:
-                        self.player_hand.remove(card)
-                        self.player_last_drawn = None  # Clear after playing
-                        return card, 0
-                    else:
-                        # Determine why card is invalid
-                        same_suit = [c for c in self.player_hand if c.suit == lead_card.suit]
-                        if same_suit:
-                            error_msg = f"You must follow suit ({colored_suit(lead_card.suit)})!"
-                        else:
-                            error_msg = f"You must play trump ({colored_suit(self.trump_suit)})!"
-                else:
-                    error_msg = "Invalid card number!"
-            except ValueError:
-                error_msg = "Please enter a number!"
-
-    def player_announce_marriage(self, marriages: list[Suit]) -> tuple[Card, int]:
-        """Let player choose which marriage to announce and which card to play."""
-        while True:
-            self.display_state()
-            print("Announce marriage:")
-            for i, suit in enumerate(marriages):
-                pts = self.marriage_value(suit)
-                print(f"  [{i+1}] {colored_suit(suit)} marriage (+{pts} points)")
-            print("  [0] Cancel")
-            
-            try:
-                choice = input("\nChoose marriage: ").strip()
-                idx = int(choice)
-                
-                if idx == 0:
-                    # Return to normal play - re-enter player_play
-                    return self.player_play(None)
-                
-                if 1 <= idx <= len(marriages):
-                    suit = marriages[idx - 1]
-                    points = self.marriage_value(suit)
-                    
-                    # Find K and Q of this suit
-                    king = next(c for c in self.player_hand if c.rank == " K" and c.suit == suit)
-                    queen = next(c for c in self.player_hand if c.rank == " Q" and c.suit == suit)
-                    
-                    # Ask which card to play
-                    self.display_state()
-                    print(f"{colored_suit(suit)} Marriage! Play which card?")
-                    print(f"  [1] {king}")
-                    print(f"  [2] {queen}")
-                    
-                    card_choice = input("\nYour choice: ").strip()
-                    if card_choice == '1':
-                        self.player_hand.remove(king)
-                        self.player_last_drawn = None
-                        return king, points
-                    elif card_choice == '2':
-                        self.player_hand.remove(queen)
-                        self.player_last_drawn = None
-                        return queen, points
-            except (ValueError, StopIteration):
-                pass
+            # Use the SAME state for display and prompt so indices match
+            self.display_state(computer_card=computer_card, lead_card=lead_card, state=state)
+            action = self.ui.prompt_card_play(state, computer_card)
+            card, marriage_points = self.execute_action("player", action, lead_card)
+            if card:
+                return card, marriage_points
 
     def computer_play(self, lead_card: Card | None) -> tuple[Card, int]:
         """Computer plays using action system. Returns (card, marriage_points)."""
@@ -482,7 +369,7 @@ class Round:
         
         if state.is_winner_action_phase:
             # Always swap if possible (beneficial)
-            swap_actions = [a for a in valid_actions if a.type == ActionType.SWAP_TRUMP]
+            swap_actions = [a for a in valid_actions if a.type.value == "swap_trump"]
             if swap_actions:
                 return swap_actions[0]
             # Don't close for now
@@ -498,7 +385,7 @@ class Round:
             return random.choice(marriage_actions)
         
         # Random card play (no marriage)
-        play_actions = [a for a in valid_actions if a.type == ActionType.PLAY_CARD]
+        play_actions = [a for a in valid_actions if a.type.value == "play_card"]
         return random.choice(play_actions)
 
     def play_trick(self) -> bool:
@@ -522,24 +409,11 @@ class Round:
         # Show final state with both cards
         self.display_state(computer_card=computer_card, player_card=player_card)
         
-        # Show marriage announcements
-        if player_marriage:
-            print(f"💍 You announced marriage! +{player_marriage} points")
-        if computer_marriage:
-            print(f"💍 Computer announced marriage! +{computer_marriage} points")
-        
         # Check if marriage announcer reached 66 (before trick points)
-        # Marriage is announced before trick is played, so announcer wins if they hit 66
         if player_marriage and self.player_score >= self.win_score:
             self.round_winner = "player"
-            print(f"\n🌟 You reached {self.win_score} points with marriage!")
-            input("\nPress Enter to continue...")
-            return True
         if computer_marriage and self.computer_score >= self.win_score:
             self.round_winner = "computer"
-            print(f"\n🌟 Computer reached {self.win_score} points with marriage!")
-            input("\nPress Enter to continue...")
-            return False
         
         # Determine winner
         player_strength = card_strength(player_card, lead_suit, self.trump_suit)
@@ -564,10 +438,19 @@ class Round:
         elif self.computer_score >= self.win_score:
             self.round_winner = "computer"
         
-        print(f"\n{'✓ You win!' if winner_is_player else '✗ Computer wins!'} (+{trick_points} points)")
-        if self.round_winner:
-            print(f"\n🌟 {'You' if self.round_winner == 'player' else 'Computer'} reached {self.win_score} points!")
-        input("\nPress Enter to continue...")
+        # Show result via UI
+        if self.ui:
+            from ui import TrickResult
+            result = TrickResult(
+                player_card=player_card,
+                computer_card=computer_card,
+                winner="player" if winner_is_player else "computer",
+                trick_points=trick_points,
+                player_marriage=player_marriage,
+                computer_marriage=computer_marriage
+            )
+            self.ui.show_trick_result(result, self.player_score, self.computer_score, self.round_winner)
+        
         return winner_is_player
 
     def has_nine_trump(self, hand: list[Card]) -> Card | None:
@@ -603,48 +486,40 @@ class Round:
 
     def player_winner_actions(self):
         """Let player perform special actions after winning a trick in phase 1."""
-        has_nine = self.has_nine_trump(self.player_hand)
+        if not self.ui:
+            return
+        
+        state = self.get_game_state("player", is_winner_action=True)
         
         while True:
             self.display_state()
-            print("Winner actions (Phase 1):")
+            action = self.ui.prompt_winner_action(state)
+            action_type = action.type.value
             
-            options = []
-            if has_nine and self.trump_card:
-                options.append(f"[S] Swap {has_nine} with trump {self.trump_card}")
-            options.append("[C] Close the game (enter Phase 2)")
-            options.append("[Enter] Continue to play")
-            
-            for opt in options:
-                print(f"  {opt}")
-            
-            choice = input("\nYour choice: ").strip().lower()
-            
-            if choice == 's' and has_nine:
-                self.swap_nine_trump(self.player_hand)
-                print(f"Swapped! New trump card: {self.trump_card}")
-                input("Press Enter to continue...")
-                has_nine = None  # Can't swap again
-            elif choice == 'c':
-                self.closed = True
-                self.closed_by = "you"
-                print("Game closed! No more drawing. Phase 2 rules now apply.")
-                input("Press Enter to continue...")
+            if action_type == "swap_trump":
+                old_trump = self.trump_card
+                self.execute_action("player", action)
+                self.ui.show_message(f"Swapped! New trump card: {self.trump_card}")
+                # Update state for potential second action
+                state = self.get_game_state("player", is_winner_action=True)
+            elif action_type == "close_game":
+                self.execute_action("player", action)
+                self.ui.show_message("Game closed! No more drawing. Phase 2 rules now apply.")
                 return
-            elif choice == '':
+            elif action_type == "pass":
                 return
-            # Invalid input just loops
 
     def computer_winner_actions(self):
         """Computer performs special actions after winning a trick in phase 1."""
         state = self.get_game_state("computer", is_winner_action=True)
         action = self.computer_choose_action(state)
+        action_type = action.type.value
         
-        if action.type == ActionType.SWAP_TRUMP:
+        if action_type == "swap_trump":
             old_trump = self.trump_card
             self.execute_action("computer", action)
             self.last_trick_info += f" | Swapped 9{colored_suit(self.trump_suit)} for {old_trump}"
-        elif action.type == ActionType.CLOSE_GAME:
+        elif action_type == "close_game":
             self.execute_action("computer", action)
             self.last_trick_info += " | Closed the game"
 
@@ -743,80 +618,42 @@ class Round:
             return (None, 0)
     
     def show_round_result(self, winner: str | None, game_points: int, match_scores: dict[str, int]):
-        """Display the round result."""
-        self.clear_screen()
-        print("=" * 50)
-        print("           ROUND OVER!")
-        print("=" * 50)
-        print(f"\nRound Score:")
-        print(f"  You: {self.player_score}")
-        print(f"  Computer: {self.computer_score}")
-        print()
-        
-        if winner == "player":
-            reason = ""
-            if self.closed:
-                reason = " (closed game)"
-            elif self.computer_score < 33:
-                reason = " (opponent < 33)"
-            print(f"🎉 You win this round! +{game_points} game point(s){reason}")
-        elif winner == "computer":
-            reason = ""
-            if self.closed:
-                reason = " (closed game)"
-            elif self.player_score < 33:
-                reason = " (opponent < 33)"
-            print(f"💻 Computer wins this round! +{game_points} game point(s){reason}")
-        else:
-            print("🤝 Round is a tie! No game points awarded.")
-        
-        print(f"\nMatch Score: You {match_scores['player']} - {match_scores['computer']} Computer")
-        print()
+        """Display the round result via UI."""
+        if not self.ui:
+            return
+        from ui import RoundResult
+        result = RoundResult(
+            winner=winner,
+            game_points=game_points,
+            player_score=self.player_score,
+            computer_score=self.computer_score,
+            closed=self.closed,
+            closed_by=self.closed_by
+        )
+        self.ui.show_round_result(result, match_scores)
 
 
 class Match:
     """A match consisting of multiple rounds, first to 7 game points wins."""
     
-    def __init__(self):
+    def __init__(self, ui: "GameUI | None" = None):
+        self.ui = ui
         self.player_game_points = 0
         self.computer_game_points = 0
         self.win_points = 7
         self.round_number = 0
         self.player_starts_next = random.choice([True, False])
     
-    def show_welcome(self):
-        """Display welcome message and rules."""
-        print("\033[2J\033[H", end="")  # Clear screen
-        print("=" * 50)
-        print("         WELCOME TO SIXTY-SIX!")
-        print("=" * 50)
-        print("\nRound Rules:")
-        print("- First to 66 points wins the round")
-        print("- Trump suit beats other suits")
-        print("- Higher rank wins within same suit")
-        print("- Card values: A=11, 10=10, K=4, Q=3, J=2, 9=0")
-        print("- Marriage (K+Q same suit): 20 pts, trump marriage: 40 pts")
-        print("\nPhases:")
-        print("- Phase 1 (draw pile active): play any card")
-        print("  Winner can: swap 9-trump for trump card, or close game")
-        print("- Phase 2 (draw pile empty or closed): must follow suit,")
-        print("          else must trump, else any card")
-        print("\nGame Points (first to 7 wins match):")
-        print("- Win round: 1 point")
-        print("- Opponent < 33 pts: 2 points")
-        print("- Closed game: 3 points (winner takes all)")
-        print("- Both < 66 (no close): tie, 0 points")
-        input("\nPress Enter to start the match...")
-    
     def play(self):
         """Play the match until someone reaches 7 game points."""
-        self.show_welcome()
+        if self.ui:
+            self.ui.show_welcome()
         
         while self.player_game_points < self.win_points and self.computer_game_points < self.win_points:
             self.round_number += 1
             
             # Create and play a round
-            round_game = Round(player_starts=self.player_starts_next)
+            round_game = Round(player_starts=self.player_starts_next, ui=self.ui)
             match_scores = {"player": self.player_game_points, "computer": self.computer_game_points}
             
             winner, points = round_game.play_round(match_scores)
@@ -838,38 +675,30 @@ class Match:
             if self.player_game_points >= self.win_points or self.computer_game_points >= self.win_points:
                 break
             
-            input("Press Enter for next round...")
+            if self.ui:
+                self.ui.prompt_next_round()
         
         # Match over
-        self.show_match_result()
-    
-    def show_match_result(self):
-        """Display the final match result."""
-        print("\033[2J\033[H", end="")  # Clear screen
-        print("=" * 50)
-        print("           MATCH OVER!")
-        print("=" * 50)
-        print(f"\nFinal Match Score:")
-        print(f"  You: {self.player_game_points}")
-        print(f"  Computer: {self.computer_game_points}")
-        print(f"\nRounds played: {self.round_number}")
-        print()
-        
-        if self.player_game_points >= self.win_points:
-            print("🏆 CONGRATULATIONS! You win the match! 🏆")
-        else:
-            print("💻 Computer wins the match! Better luck next time!")
-        print()
+        if self.ui:
+            from ui import MatchResult
+            result = MatchResult(
+                winner="player" if self.player_game_points >= self.win_points else "computer",
+                player_game_points=self.player_game_points,
+                computer_game_points=self.computer_game_points,
+                rounds_played=self.round_number
+            )
+            self.ui.show_match_result(result)
 
 
 def main():
+    from ui import TerminalUI
+    ui = TerminalUI()
+    
     while True:
-        match = Match()
+        match = Match(ui=ui)
         match.play()
         
-        play_again = input("Play another match? (y/n): ").lower().strip()
-        if play_again != 'y':
-            print("Thanks for playing! Goodbye!")
+        if not ui.prompt_play_again():
             break
 
 
