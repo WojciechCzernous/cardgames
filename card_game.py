@@ -40,6 +40,58 @@ class Card:
         return RANK_VALUES[self.rank]
 
 
+class ActionType(Enum):
+    """Types of actions a player can take."""
+    PLAY_CARD = "play_card"        # Play a card (with optional marriage)
+    SWAP_TRUMP = "swap_trump"      # Swap 9-trump with trump card
+    CLOSE_GAME = "close_game"      # Close the game early
+    PASS = "pass"                  # No action (continue)
+
+
+@dataclass
+class Action:
+    """A formal action that can be taken by a player."""
+    type: ActionType
+    card_index: int | None = None   # Index in hand for PLAY_CARD
+    marriage_suit: Suit | None = None  # Suit for marriage announcement
+    
+    def __repr__(self):
+        if self.type == ActionType.PLAY_CARD:
+            if self.marriage_suit:
+                return f"Action(PLAY_CARD, idx={self.card_index}, marriage={self.marriage_suit.name})"
+            return f"Action(PLAY_CARD, idx={self.card_index})"
+        return f"Action({self.type.name})"
+
+
+@dataclass
+class GameState:
+    """Observable game state for a player."""
+    # Player's own hand
+    hand: list[Card]
+    
+    # Visible game info
+    trump_suit: Suit
+    trump_card: Card | None  # Visible trump card (or None if taken)
+    draw_pile_size: int
+    phase: int  # 1 or 2
+    closed: bool
+    closed_by: str | None
+    
+    # Scores
+    my_score: int
+    opponent_score: int
+    
+    # Current trick info
+    is_leading: bool
+    lead_card: Card | None  # Opponent's card if responding
+    
+    # Available actions
+    valid_actions: list[Action]
+    
+    # Context
+    is_winner_action_phase: bool  # True when choosing swap/close after trick
+
+
 def create_deck() -> list[Card]:
     """Create a 24-card deck."""
     deck = []
@@ -220,6 +272,101 @@ class Round:
         
         return hand
 
+    def get_valid_actions(self, player: str, lead_card: Card | None = None, 
+                          is_winner_action: bool = False) -> list[Action]:
+        """Get all valid actions for a player in current state."""
+        hand = self.player_hand if player == "player" else self.computer_hand
+        actions = []
+        
+        if is_winner_action:
+            # Winner action phase: swap, close, or pass
+            if self.has_nine_trump(hand) and self.trump_card:
+                actions.append(Action(ActionType.SWAP_TRUMP))
+            actions.append(Action(ActionType.CLOSE_GAME))
+            actions.append(Action(ActionType.PASS))
+            return actions
+        
+        # Card play phase
+        valid_cards = self.get_valid_cards(hand, lead_card)
+        marriages = self.get_marriages(hand) if lead_card is None else []
+        
+        for i, card in enumerate(hand):
+            if card in valid_cards:
+                # Check if this card can be played with a marriage
+                for suit in marriages:
+                    if card.suit == suit and card.rank in (" K", " Q"):
+                        actions.append(Action(ActionType.PLAY_CARD, card_index=i, marriage_suit=suit))
+                # Can always play without announcing marriage
+                actions.append(Action(ActionType.PLAY_CARD, card_index=i))
+        
+        return actions
+
+    def get_game_state(self, player: str, lead_card: Card | None = None,
+                       is_winner_action: bool = False) -> GameState:
+        """Get observable game state from a player's perspective."""
+        if player == "player":
+            hand = self.player_hand.copy()
+            my_score = self.player_score
+            opp_score = self.computer_score
+            is_leading = self.player_leads
+        else:
+            hand = self.computer_hand.copy()
+            my_score = self.computer_score
+            opp_score = self.player_score
+            is_leading = not self.player_leads
+        
+        valid_actions = self.get_valid_actions(player, lead_card, is_winner_action)
+        
+        return GameState(
+            hand=hand,
+            trump_suit=self.trump_suit,
+            trump_card=self.trump_card,
+            draw_pile_size=len(self.draw_pile),
+            phase=self.phase,
+            closed=self.closed,
+            closed_by=self.closed_by,
+            my_score=my_score,
+            opponent_score=opp_score,
+            is_leading=is_leading and lead_card is None,
+            lead_card=lead_card,
+            valid_actions=valid_actions,
+            is_winner_action_phase=is_winner_action
+        )
+
+    def execute_action(self, player: str, action: Action, 
+                       lead_card: Card | None = None) -> tuple[Card | None, int]:
+        """Execute an action for a player. Returns (card_played, marriage_points)."""
+        hand = self.player_hand if player == "player" else self.computer_hand
+        
+        if action.type == ActionType.SWAP_TRUMP:
+            old_trump = self.trump_card
+            self.swap_nine_trump(hand)
+            return None, 0
+        
+        elif action.type == ActionType.CLOSE_GAME:
+            self.closed = True
+            self.closed_by = "you" if player == "player" else "computer"
+            return None, 0
+        
+        elif action.type == ActionType.PASS:
+            return None, 0
+        
+        elif action.type == ActionType.PLAY_CARD:
+            card = hand[action.card_index]
+            hand.remove(card)
+            
+            # Clear last drawn marker
+            if player == "player":
+                self.player_last_drawn = None
+            
+            marriage_points = 0
+            if action.marriage_suit:
+                marriage_points = self.marriage_value(action.marriage_suit)
+            
+            return card, marriage_points
+        
+        return None, 0
+
     def player_play(self, lead_card: Card | None, computer_card: Card | None = None) -> tuple[Card, int]:
         """Let the player choose a card to play. Returns (card, marriage_points)."""
         valid_cards = self.get_valid_cards(self.player_hand, lead_card)
@@ -323,32 +470,36 @@ class Round:
                 pass
 
     def computer_play(self, lead_card: Card | None) -> tuple[Card, int]:
-        """Computer plays randomly from valid cards. Returns (card, marriage_points)."""
-        valid_cards = self.get_valid_cards(self.computer_hand, lead_card)
+        """Computer plays using action system. Returns (card, marriage_points)."""
+        state = self.get_game_state("computer", lead_card)
+        action = self.computer_choose_action(state)
+        card, marriage_points = self.execute_action("computer", action, lead_card)
+        return card, marriage_points
+
+    def computer_choose_action(self, state: GameState) -> Action:
+        """Computer's decision logic. Override this for RL agent."""
+        valid_actions = state.valid_actions
         
-        # Check for marriages if leading (computer always announces if possible)
-        marriage_points = 0
-        if lead_card is None:
-            marriages = self.get_marriages(self.computer_hand)
-            if marriages:
-                # Pick best marriage (trump first, else random)
-                if self.trump_suit in marriages:
-                    suit = self.trump_suit
-                else:
-                    suit = random.choice(marriages)
-                
-                marriage_points = self.marriage_value(suit)
-                
-                # Must play K or Q of that suit
-                king = next((c for c in self.computer_hand if c.rank == " K" and c.suit == suit), None)
-                queen = next((c for c in self.computer_hand if c.rank == " Q" and c.suit == suit), None)
-                card = random.choice([c for c in [king, queen] if c])
-                self.computer_hand.remove(card)
-                return card, marriage_points
+        if state.is_winner_action_phase:
+            # Always swap if possible (beneficial)
+            swap_actions = [a for a in valid_actions if a.type == ActionType.SWAP_TRUMP]
+            if swap_actions:
+                return swap_actions[0]
+            # Don't close for now
+            return Action(ActionType.PASS)
         
-        card = random.choice(valid_cards)
-        self.computer_hand.remove(card)
-        return card, 0
+        # Card play: prefer marriage if available, else random
+        marriage_actions = [a for a in valid_actions if a.marriage_suit]
+        if marriage_actions:
+            # Prefer trump marriage
+            trump_marriages = [a for a in marriage_actions if a.marriage_suit == state.trump_suit]
+            if trump_marriages:
+                return random.choice(trump_marriages)
+            return random.choice(marriage_actions)
+        
+        # Random card play (no marriage)
+        play_actions = [a for a in valid_actions if a.type == ActionType.PLAY_CARD]
+        return random.choice(play_actions)
 
     def play_trick(self) -> bool:
         """Play one trick. Returns True if player won."""
@@ -486,13 +637,16 @@ class Round:
 
     def computer_winner_actions(self):
         """Computer performs special actions after winning a trick in phase 1."""
-        # Computer always swaps if it has nine of trump (always beneficial)
-        if self.has_nine_trump(self.computer_hand) and self.trump_card:
-            old_trump = self.trump_card
-            self.swap_nine_trump(self.computer_hand)
-            self.last_trick_info += f" | Swapped 9{colored_suit(self.trump_suit)} for {old_trump}"
+        state = self.get_game_state("computer", is_winner_action=True)
+        action = self.computer_choose_action(state)
         
-        # Computer doesn't close for now (could add strategy later)
+        if action.type == ActionType.SWAP_TRUMP:
+            old_trump = self.trump_card
+            self.execute_action("computer", action)
+            self.last_trick_info += f" | Swapped 9{colored_suit(self.trump_suit)} for {old_trump}"
+        elif action.type == ActionType.CLOSE_GAME:
+            self.execute_action("computer", action)
+            self.last_trick_info += " | Closed the game"
 
     def draw_cards(self):
         """Both players draw a card if available."""
