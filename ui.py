@@ -210,7 +210,7 @@ class TerminalUI(GameUI):
         print(display_hand(state.hand))
         print()
     
-    def prompt_card_play(self, state: GameState, computer_card: Card | None = None, debug: bool = False) -> Action:
+    def prompt_card_play(self, state: GameState, computer_card: Card | None = None) -> Action:
         """Prompt player to choose a card to play."""
         # Find marriages in valid actions
         marriages = list(set(a.marriage_suit for a in state.valid_actions if a.marriage_suit))
@@ -241,21 +241,6 @@ class TerminalUI(GameUI):
                     prompt += " or [M] to announce marriage"
                 prompt += ": "
                 choice = input(prompt).strip().lower()
-                
-                # Debug mode
-                if choice == 'debug':
-                    print("\n=== DEBUG INFO ===")
-                    print(f"state.hand ({len(state.hand)} cards):")
-                    for i, c in enumerate(state.hand):
-                        print(f"  [{i}] {c}")
-                    print(f"\nvalid_actions ({len(state.valid_actions)}):")
-                    for a in state.valid_actions:
-                        print(f"  {a}")
-                        print(f"    type={a.type}, type==PLAY_CARD: {a.type == ActionType.PLAY_CARD}")
-                        print(f"    type is ActionType.PLAY_CARD: {a.type is ActionType.PLAY_CARD}")
-                        print(f"    type.value={a.type.value}, PLAY_CARD.value={ActionType.PLAY_CARD.value}")
-                    print("==================\n")
-                    continue
                 
                 # Handle marriage announcement
                 if choice == 'm' and marriages:

@@ -95,6 +95,9 @@ class GameState:
     
     # Context
     is_winner_action_phase: bool  # True when choosing swap/close after trick
+    
+    # Memory of seen cards (for RL - cards observed during round)
+    seen_cards: set[tuple[str, str]]  # Set of (rank, suit_value) tuples
 
 
 def create_deck() -> list[Card]:
@@ -186,6 +189,19 @@ class Round:
         
         # Match scores for display
         self.match_scores: dict[str, int] | None = None
+        
+        # Track cards seen by computer (for RL state)
+        # Uses (rank, suit_value) tuples for hashability
+        self.computer_seen_cards: set[tuple[str, str]] = set()
+        
+        # Initialize with computer's starting hand and trump card
+        for card in self.computer_hand:
+            self.computer_seen_cards.add((card.rank, card.suit.value))
+        self.computer_seen_cards.add((self.trump_card.rank, self.trump_card.suit.value))
+
+    def computer_sees_card(self, card: Card):
+        """Record that the computer has seen a card."""
+        self.computer_seen_cards.add((card.rank, card.suit.value))
 
     def sort_hand(self, hand: list[Card]):
         """Sort hand by suit, then by rank."""
@@ -301,7 +317,8 @@ class Round:
             is_leading=is_leading and lead_card is None,
             lead_card=lead_card,
             valid_actions=valid_actions,
-            is_winner_action_phase=is_winner_action
+            is_winner_action_phase=is_winner_action,
+            seen_cards=self.computer_seen_cards.copy() if player == "computer" else set()
         )
 
     def execute_action(self, player: str, action: Action, 
@@ -332,6 +349,11 @@ class Round:
             # Clear last drawn marker
             if player == "player":
                 self.player_last_drawn = None
+                
+                # If player announces marriage, computer sees both K and Q
+                if action.marriage_suit:
+                    self.computer_seen_cards.add((" K", action.marriage_suit.value))
+                    self.computer_seen_cards.add((" Q", action.marriage_suit.value))
             
             marriage_points = 0
             if action.marriage_suit:
@@ -395,6 +417,9 @@ class Round:
         
         if self.player_leads:
             player_card, player_marriage = self.player_play(None)
+            # Computer sees the player's card
+            self.computer_sees_card(player_card)
+            # If player announced marriage, computer sees both K and Q
             if player_marriage:
                 self.player_score += player_marriage
             computer_card, _ = self.computer_play(player_card)
@@ -404,6 +429,8 @@ class Round:
             if computer_marriage:
                 self.computer_score += computer_marriage
             player_card, _ = self.player_play(computer_card, computer_card)
+            # Computer sees the player's response card
+            self.computer_sees_card(player_card)
             lead_suit = computer_card.suit
         
         # Show final state with both cards
@@ -481,6 +508,8 @@ class Round:
             hand.remove(nine)
             hand.append(self.trump_card)
             self.trump_card = nine
+            # Computer always sees the new trump card (the 9)
+            self.computer_sees_card(nine)
             return True
         return False
 
@@ -538,12 +567,17 @@ class Round:
                 self.player_hand.append(drawn)
                 self.player_last_drawn = drawn
                 if self.draw_pile:
-                    self.computer_hand.append(self.draw_pile.pop())
+                    computer_drawn = self.draw_pile.pop()
+                    self.computer_hand.append(computer_drawn)
+                    self.computer_sees_card(computer_drawn)
                 elif self.trump_card:
                     self.computer_hand.append(self.trump_card)
+                    self.computer_sees_card(self.trump_card)
                     self.trump_card = None
             else:
-                self.computer_hand.append(self.draw_pile.pop())
+                computer_drawn = self.draw_pile.pop()
+                self.computer_hand.append(computer_drawn)
+                self.computer_sees_card(computer_drawn)
                 if self.draw_pile:
                     drawn = self.draw_pile.pop()
                     self.player_hand.append(drawn)
@@ -559,6 +593,7 @@ class Round:
                 self.player_last_drawn = self.trump_card
             else:
                 self.computer_hand.append(self.trump_card)
+                self.computer_sees_card(self.trump_card)
             self.trump_card = None
 
     def play_round(self, match_scores: dict[str, int] | None = None) -> tuple[str | None, int]:
