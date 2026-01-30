@@ -8,7 +8,7 @@ import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
     from ui import GameUI
@@ -141,11 +141,17 @@ def display_hidden_cards(count: int) -> str:
     return " ".join(["[?]"] * count)
 
 
+# Type alias for agent policy function
+AgentPolicy = Callable[[GameState], Action]
+
+
 class Round:
     """A single round played to 66 points."""
     
-    def __init__(self, player_starts: bool = None, ui: "GameUI | None" = None):
+    def __init__(self, player_starts: bool = None, ui: "GameUI | None" = None,
+                 computer_policy: "AgentPolicy | None" = None):
         self.ui = ui  # UI can be None for headless/testing
+        self.computer_policy = computer_policy  # Custom AI policy
         self.deck = create_deck()
         random.shuffle(self.deck)
         
@@ -386,7 +392,11 @@ class Round:
         return card, marriage_points
 
     def computer_choose_action(self, state: GameState) -> Action:
-        """Computer's decision logic. Override this for RL agent."""
+        """Computer's decision logic. Uses custom policy if set."""
+        if self.computer_policy:
+            return self.computer_policy(state)
+        
+        # Default: random with marriage preference
         valid_actions = state.valid_actions
         
         if state.is_winner_action_phase:
@@ -671,8 +681,9 @@ class Round:
 class Match:
     """A match consisting of multiple rounds, first to 7 game points wins."""
     
-    def __init__(self, ui: "GameUI | None" = None):
+    def __init__(self, ui: "GameUI | None" = None, computer_policy: "AgentPolicy | None" = None):
         self.ui = ui
+        self.computer_policy = computer_policy
         self.player_game_points = 0
         self.computer_game_points = 0
         self.win_points = 7
@@ -688,7 +699,8 @@ class Match:
             self.round_number += 1
             
             # Create and play a round
-            round_game = Round(player_starts=self.player_starts_next, ui=self.ui)
+            round_game = Round(player_starts=self.player_starts_next, ui=self.ui,
+                               computer_policy=self.computer_policy)
             match_scores = {"player": self.player_game_points, "computer": self.computer_game_points}
             
             winner, points = round_game.play_round(match_scores)
@@ -725,12 +737,60 @@ class Match:
             self.ui.show_match_result(result)
 
 
+def greedy_policy(state: GameState) -> Action:
+    """Greedy agent - prefers marriages and high-value cards."""
+    valid_actions = state.valid_actions
+    
+    if state.is_winner_action_phase:
+        swap_actions = [a for a in valid_actions if a.type.value == "swap_trump"]
+        if swap_actions:
+            return swap_actions[0]
+        return Action(ActionType.PASS)
+    
+    # Prefer marriages (especially trump marriages)
+    marriage_actions = [a for a in valid_actions if a.marriage_suit]
+    if marriage_actions:
+        trump_marriages = [a for a in marriage_actions if a.marriage_suit == state.trump_suit]
+        if trump_marriages:
+            return random.choice(trump_marriages)
+        return random.choice(marriage_actions)
+    
+    # Play highest value card
+    play_actions = [a for a in valid_actions if a.type.value == "play_card"]
+    if play_actions:
+        best_action = max(play_actions, key=lambda a: state.hand[a.card_index].value())
+        return best_action
+    
+    return random.choice(valid_actions)
+
+
+BOT_POLICIES = {
+    "random": None,  # Uses default random behavior
+    "greedy": greedy_policy,
+}
+
+
 def main():
+    import sys
     from ui import TerminalUI
     ui = TerminalUI()
     
+    # Check command line args for bot selection
+    bot_name = "random"
+    if len(sys.argv) > 1:
+        bot_name = sys.argv[1].lower()
+    
+    if bot_name not in BOT_POLICIES:
+        print(f"Unknown bot: {bot_name}")
+        print(f"Available bots: {', '.join(BOT_POLICIES.keys())}")
+        sys.exit(1)
+    
+    policy = BOT_POLICIES[bot_name]
+    print(f"Playing against: {bot_name} bot")
+    print()
+    
     while True:
-        match = Match(ui=ui)
+        match = Match(ui=ui, computer_policy=policy)
         match.play()
         
         if not ui.prompt_play_again():
