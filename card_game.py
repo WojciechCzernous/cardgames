@@ -8,7 +8,7 @@ Usage:
 
 import sys
 
-from agents import HumanPlayer, RandomPlayer, GreedyPlayer
+from agents import HumanPlayer, RandomPlayer, GreedyPlayer, SmartPlayer
 from game import Match
 from ui import TerminalUI
 
@@ -16,6 +16,7 @@ from ui import TerminalUI
 BOT_TYPES = {
     "random": lambda: RandomPlayer("Computer"),
     "greedy": lambda: GreedyPlayer("Computer"),
+    "smart":  lambda: SmartPlayer("Computer"),
 }
 
 

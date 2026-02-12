@@ -115,6 +115,56 @@ class GreedyPlayer(Player):
         return random.choice(va)
 
 
+class SmartPlayer(Player):
+    """Greedy in phase 1, minimax-optimal in phase 2 (perfect information)."""
+
+    def __init__(self, name: str = "Smart"):
+        super().__init__(name)
+        self._greedy = GreedyPlayer(name)
+
+    def choose_action(self, view: PlayerView) -> Action:
+        # Phase 2 with empty draw pile → perfect info → minimax
+        if (view.draw_pile_size == 0
+                and not view.is_winner_action_phase
+                and view.phase == 2):
+            return self._minimax_action(view)
+
+        # Otherwise fall back to greedy heuristic
+        return self._greedy.choose_action(view)
+
+    # ------------------------------------------------------------------
+
+    def _minimax_action(self, view: PlayerView) -> Action:
+        from solver import EndgameSolver
+        from models import Card, Suit, RANKS
+
+        # Derive opponent's hand by elimination
+        all_cards = {Card(r, s) for s in Suit for r in RANKS}
+        my_hand_set = set(view.hand)
+        opponent_hand = sorted(
+            all_cards - my_hand_set - view.played_cards,
+            key=lambda c: c.key(),
+        )
+
+        opp = 1 - view.seat
+        hands = {view.seat: list(view.hand), opp: opponent_hand}
+        scores = {view.seat: view.my_score, opp: view.opponent_score}
+        leader = view.seat if view.is_leading else opp
+        lead_card = None if view.is_leading else view.lead_card
+
+        solver = EndgameSolver(
+            trump_suit=view.trump_suit,
+            my_seat=view.seat,
+            closed=view.closed,
+            closed_by=view.closed_by,
+        )
+        idx, mar_suit, _val = solver.best_action(
+            hands, scores, leader, lead_card)
+
+        return Action(ActionType.PLAY_CARD,
+                      card_index=idx, marriage_suit=mar_suit)
+
+
 # ---------------------------------------------------------------------------
 # Human player (delegates to a TerminalUI for I/O)
 # ---------------------------------------------------------------------------

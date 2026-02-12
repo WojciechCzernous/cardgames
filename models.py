@@ -86,6 +86,7 @@ class PlayerView:
     valid_actions: list[Action]
     is_winner_action_phase: bool
     seen_cards: set[tuple[str, str]]   # cards this player has observed
+    played_cards: set[Card] = field(default_factory=set)  # cards played in completed tricks
 
     # Additional context for display (not used by agents)
     opponent_hand_size: int = 0
