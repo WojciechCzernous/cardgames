@@ -277,6 +277,76 @@ class TerminalUI:
                 return Action(ActionType.PASS)
 
     # ------------------------------------------------------------------
+    # Table display (both cards played)
+    # ------------------------------------------------------------------
+
+    def show_table(self, view: PlayerView,
+                   table_cards: dict[int, Card],
+                   leader: int = 0,
+                   marriages: dict[int, int] | None = None) -> None:
+        """Show the table with both cards (lead first, response second), pause 2 seconds."""
+        import time
+        self.clear_screen()
+
+        opp = self._opponent_name
+        opp_seat = 1 - self.seat
+        follower = 1 - leader
+        if marriages is None:
+            marriages = {}
+
+        # Header
+        print("=" * 50)
+        if view.match_scores:
+            my_gp = view.match_scores.get(view.seat, 0)
+            opp_gp = view.match_scores.get(1 - view.seat, 0)
+            print(f"    SIXTY-SIX          Match: You {my_gp} - {opp_gp} {opp}")
+        else:
+            print("              SIXTY-SIX")
+        print("=" * 50)
+
+        # Trump / draw / phase
+        trump_display = card_str(view.trump_card) if view.trump_card else f"[{colored_suit(view.trump_suit)}]"
+        if view.closed:
+            who = "you" if view.closed_by == view.seat else opp.lower()
+            phase_info = f"CLOSED by {who}"
+        elif view.phase == 1:
+            phase_info = "Phase 1 (free play)"
+        else:
+            phase_info = "Phase 2 (must follow)"
+        print(f"Trump: {trump_display}  |  Draw pile: {view.draw_pile_size} cards  |  {phase_info}")
+        print(f"Score - You: {view.my_score:3d}  |  {opp}: {view.opponent_score:3d}")
+        print("-" * 50)
+        print()
+        print()
+
+        # Opponent hand (hidden)
+        print(f"{opp}: {display_hidden(view.opponent_hand_size)}")
+        print()
+
+        # Table with both cards — lead first, response second
+        def seat_label(s: int) -> str:
+            return "You" if s == self.seat else opp
+
+        def marriage_tag(s: int) -> str:
+            pts = marriages.get(s, 0)
+            if pts:
+                return f"  💍 +{pts}"
+            return ""
+
+        print("─" * 20 + " TABLE " + "─" * 23)
+        print(f"  Lead:     {seat_label(leader):>10s}  {card_str(table_cards[leader])}{marriage_tag(leader)}")
+        print(f"  Response: {seat_label(follower):>10s}  {card_str(table_cards[follower])}{marriage_tag(follower)}")
+        print("─" * 50)
+        print()
+
+        # Player hand
+        print(f"Your hand:")
+        print(display_hand(view.hand))
+        print()
+
+        time.sleep(2)
+
+    # ------------------------------------------------------------------
     # Result notifications
     # ------------------------------------------------------------------
 

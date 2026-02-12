@@ -268,6 +268,12 @@ class Round:
             if st.scores[s] >= rules.WIN_SCORE:
                 st.round_winner = s
 
+        # Show both cards on the table before resolving
+        for seat in (0, 1):
+            view = st.player_view(seat, lead_card=None,
+                                  match_scores=self.match_scores)
+            self.players[seat].notify_trick_cards(view, cards, leader, marriages)
+
         result = TrickResult(
             cards=cards,
             winner=winner,

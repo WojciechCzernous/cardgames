@@ -9,7 +9,7 @@ import random
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-from models import Action, ActionType, PlayerView, TrickResult, RoundResult, MatchResult
+from models import Action, ActionType, Card, PlayerView, TrickResult, RoundResult, MatchResult
 
 if TYPE_CHECKING:
     from ui import TerminalUI
@@ -31,6 +31,13 @@ class Player(ABC):
         ...
 
     # Optional notification hooks (override as needed)
+    def notify_trick_cards(self, view: PlayerView,
+                           table_cards: dict[int, Card],
+                           leader: int = 0,
+                           marriages: dict[int, int] | None = None) -> None:
+        """Called after both cards are on the table, before result."""
+        pass
+
     def notify_trick(self, result: TrickResult,
                      score_0: int, score_1: int,
                      round_winner: int | None) -> None:
@@ -126,6 +133,12 @@ class HumanPlayer(Player):
         else:
             self.ui.display_state(view)
             return self.ui.prompt_card_play(view)
+
+    def notify_trick_cards(self, view: PlayerView,
+                           table_cards: dict[int, Card],
+                           leader: int = 0,
+                           marriages: dict[int, int] | None = None) -> None:
+        self.ui.show_table(view, table_cards, leader, marriages)
 
     def notify_trick(self, result: TrickResult,
                      score_0: int, score_1: int,
