@@ -12,7 +12,7 @@ the responder's available actions may also depend on the initiator's choice.
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, Optional, Hashable
+from typing import Any, Optional, Hashable, cast
 
 
 class Player(Enum):
@@ -285,40 +285,44 @@ class ExampleGame(GameRules):
     def initial_state(self) -> ExampleState:
         return ExampleState(_round=1, _initiator=Player.A, score_a=0, score_b=0)
 
-    def get_initiator_actions(self, state: ExampleState) -> list[int]:
+    def get_initiator_actions(self, state: GameState) -> list[int]:
+        s = cast(ExampleState, state)
         return [1, 2, 3]
 
-    def get_responder_actions(self, state: ExampleState, action_init: int) -> list[int]:
+    def get_responder_actions(self, state: GameState, action_init: int) -> list[int]:
+        s = cast(ExampleState, state)
         # Example: if initiator went all-in (3), responder can only pick 1 or 2
         if action_init == 3:
             return [1, 2]
         return [1, 2, 3]
 
     def resolve_round(
-        self, state: ExampleState, action_init: int, action_resp: int
-    ) -> ExampleState:
-        initiator = state.initiator
+        self, state: GameState, action_init: int, action_resp: int
+    ) -> GameState:
+        s = cast(ExampleState, state)
+        initiator = s.initiator
         if initiator is Player.A:
-            new_a = state.score_a + action_init
-            new_b = state.score_b + action_resp
+            new_a = s.score_a + action_init
+            new_b = s.score_b + action_resp
         else:
-            new_a = state.score_a + action_resp
-            new_b = state.score_b + action_init
+            new_a = s.score_a + action_resp
+            new_b = s.score_b + action_init
 
         winner = initiator if action_init >= action_resp else initiator.opponent()
 
         return ExampleState(
-            _round=state.round + 1,
+            _round=s.round + 1,
             _initiator=winner,
             score_a=new_a,
             score_b=new_b,
         )
 
-    def evaluate(self, state: ExampleState) -> float:
+    def evaluate(self, state: GameState) -> float:
+        s = cast(ExampleState, state)
         # Nonlinear: A wants (a² − a·b) to be large
-        return state.score_a ** 2 - state.score_a * state.score_b
+        return s.score_a ** 2 - s.score_a * s.score_b
 
-    def is_terminal(self, state: ExampleState) -> bool:
+    def is_terminal(self, state: GameState) -> bool:
         return state.round > self.max_rounds()
 
 
