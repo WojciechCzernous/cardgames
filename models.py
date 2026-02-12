@@ -90,6 +90,7 @@ class PlayerView:
 
     # Additional context for display (not used by agents)
     opponent_hand_size: int = 0
+    opponent_hand: list[Card] | None = None   # set when hand is revealed
     last_trick_info: str = ""
     last_drawn: Card | None = None
     match_scores: dict[int, int] = field(default_factory=dict)

@@ -120,6 +120,7 @@ class RoundState:
             seen_cards=set(self.seen_cards[seat]),
             played_cards=set(self.played_cards),
             opponent_hand_size=len(self.hands[opp]),
+            opponent_hand=list(self.hands[opp]),
             last_trick_info=self.last_trick_info,
             last_drawn=self.last_drawn[seat],
             match_scores=match_scores or {},

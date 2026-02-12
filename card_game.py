@@ -4,6 +4,7 @@ Sixty-Six card game — interactive entry point.
 Usage:
     python card_game.py              # play vs random bot
     python card_game.py greedy       # play vs greedy bot
+    python card_game.py --reveal     # show bot hand when draw pile is empty
 """
 
 import sys
@@ -21,14 +22,18 @@ BOT_TYPES = {
 
 
 def main():
-    bot_name = sys.argv[1].lower() if len(sys.argv) > 1 else "random"
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    flags = {a for a in sys.argv[1:] if a.startswith("--")}
+
+    bot_name = args[0].lower() if args else "random"
+    reveal = "--reveal" in flags
 
     if bot_name not in BOT_TYPES:
         print(f"Unknown bot: {bot_name}")
         print(f"Available: {', '.join(BOT_TYPES)}")
         sys.exit(1)
 
-    ui = TerminalUI()
+    ui = TerminalUI(reveal_opponent=reveal)
     human = HumanPlayer(ui, name="You")
     bot = BOT_TYPES[bot_name]()
 

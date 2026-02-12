@@ -54,9 +54,10 @@ class TerminalUI:
     The human's seat number is set when we know it (usually 0).
     """
 
-    def __init__(self):
+    def __init__(self, reveal_opponent: bool = False):
         self.seat: int = 0
         self._opponent_name = "Opponent"
+        self.reveal_opponent = reveal_opponent
 
     def set_context(self, seat: int, opponent_name: str):
         self.seat = seat
@@ -135,8 +136,11 @@ class TerminalUI:
             print()
         print()
 
-        # Opponent hand (hidden)
-        print(f"{opp}: {display_hidden(view.opponent_hand_size)}")
+        # Opponent hand
+        if self.reveal_opponent and view.draw_pile_size == 0 and view.opponent_hand:
+            print(f"{opp}: {display_hand(view.opponent_hand, show_numbers=False)}")
+        else:
+            print(f"{opp}: {display_hidden(view.opponent_hand_size)}")
         print()
 
         # Table area
@@ -319,8 +323,11 @@ class TerminalUI:
         print()
         print()
 
-        # Opponent hand (hidden)
-        print(f"{opp}: {display_hidden(view.opponent_hand_size)}")
+        # Opponent hand
+        if self.reveal_opponent and view.draw_pile_size == 0 and view.opponent_hand:
+            print(f"{opp}: {display_hand(view.opponent_hand, show_numbers=False)}")
+        else:
+            print(f"{opp}: {display_hidden(view.opponent_hand_size)}")
         print()
 
         # Table with both cards — lead first, response second
