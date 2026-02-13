@@ -115,6 +115,7 @@ class RoundState:
             opponent_score=self.scores[opp],
             is_leading=(self.leader == seat) and (lead_card is None),
             lead_card=lead_card,
+            lead_marriage=None,
             valid_actions=valid_actions,
             is_winner_action_phase=is_winner_action,
             seen_cards=set(self.seen_cards[seat]),
@@ -252,6 +253,7 @@ class Round:
         # --- Follower plays (sees leader's card) ---
         view_f = st.player_view(follower, lead_card=card_l,
                                 match_scores=self.match_scores)
+        view_f.lead_marriage = action_l.marriage_suit
         action_f = self.players[follower].choose_action(view_f)
         card_f, mar_f = self.execute_action(follower, action_f)
         if mar_f:
@@ -389,6 +391,8 @@ class Match:
         self.round_number = 0
         self.first_seat: int = random.choice([0, 1])
 
+        self._next_round: Round | None = None
+
     def play(self) -> MatchResult:
         for seat in (0, 1):
             self.players[seat].notify_match_start()
@@ -396,7 +400,15 @@ class Match:
         while all(gp < self.WIN_POINTS for gp in self.game_points.values()):
             self.round_number += 1
 
-            rnd = Round(self.players, first_seat=self.first_seat)
+            if self._next_round is not None:
+                rnd = self._next_round
+                self._next_round = None
+            else:
+                rnd = Round(self.players, first_seat=self.first_seat)
+                # Show dealing animation for the first round
+                for seat in (0, 1):
+                    self.players[seat].notify_next_round(
+                        list(rnd.state.hands[seat]), first_round=True)
             rr = rnd.play(match_scores=dict(self.game_points))
 
             if rr.winner is not None:
@@ -405,8 +417,11 @@ class Match:
             self.first_seat = 1 - self.first_seat    # alternate
 
             if all(gp < self.WIN_POINTS for gp in self.game_points.values()):
+                # Create next round early so we can show the dealt hand
+                self._next_round = Round(self.players, first_seat=self.first_seat)
                 for seat in (0, 1):
-                    self.players[seat].notify_next_round()
+                    self.players[seat].notify_next_round(
+                        list(self._next_round.state.hands[seat]))
 
         winner = 0 if self.game_points[0] >= self.WIN_POINTS else 1
         mr = MatchResult(

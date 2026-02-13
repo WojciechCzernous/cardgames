@@ -8,6 +8,7 @@ from models import (
     Card, Suit, Action, ActionType, PlayerView,
     TrickResult, RoundResult, MatchResult, RANKS,
 )
+from rules import marriage_value
 
 # ANSI codes
 RED = "\033[91m"
@@ -146,7 +147,11 @@ class TerminalUI:
         # Table area
         print("─" * 20 + " TABLE " + "─" * 23)
         if view.lead_card:
-            print(f"  {opp} played: {card_str(view.lead_card)}")
+            marriage_info = ""
+            if view.lead_marriage:
+                pts = marriage_value(view.lead_marriage, view.trump_suit)
+                marriage_info = f"  💍 +{pts}"
+            print(f"  {opp} played: {card_str(view.lead_card)}{marriage_info}")
         else:
             print()
         print()
@@ -435,8 +440,41 @@ class TerminalUI:
             print("Thanks for playing! Goodbye!")
         return choice == 'y'
 
-    def prompt_next_round(self) -> None:
-        input("Press Enter for next round...")
+    def show_next_round(self, hand: list[Card] | None = None,
+                        first_round: bool = False) -> None:
+        import time
+        import sys
+
+        if not first_round:
+            input("Press Enter for next round...")
+
+        # "Next round" splash
+        self.clear_screen()
+        print()
+        print()
+        print("          ╭─────────────────╮")
+        print("          │   Next round    │")
+        print("          ╰─────────────────╯")
+        print()
+        time.sleep(1.0)
+
+        # Deal cards one by one
+        if hand:
+            self.clear_screen()
+            print()
+            print("  Dealing...\n")
+            dealt: list[Card] = []
+            for card in hand:
+                dealt.append(card)
+                self.clear_screen()
+                print()
+                print("  Dealing...\n")
+                print("  Your hand:  ", end="")
+                print("  ".join(card_str(c) for c in dealt))
+                print()
+                sys.stdout.flush()
+                time.sleep(0.5)
+            time.sleep(0.5)
 
     def show_message(self, message: str) -> None:
         print(message)

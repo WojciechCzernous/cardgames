@@ -59,7 +59,8 @@ class Player(ABC):
     def notify_match_result(self, result: MatchResult) -> None:
         pass
 
-    def notify_next_round(self) -> None:
+    def notify_next_round(self, hand: list[Card] | None = None,
+                          first_round: bool = False) -> None:
         pass
 
 
@@ -211,5 +212,6 @@ class HumanPlayer(Player):
     def notify_match_result(self, result: MatchResult) -> None:
         self.ui.show_match_result(result)
 
-    def notify_next_round(self) -> None:
-        self.ui.prompt_next_round()
+    def notify_next_round(self, hand: list[Card] | None = None,
+                          first_round: bool = False) -> None:
+        self.ui.show_next_round(hand, first_round=first_round)

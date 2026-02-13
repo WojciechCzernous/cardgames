@@ -83,6 +83,7 @@ class PlayerView:
     opponent_score: int
     is_leading: bool
     lead_card: Card | None             # opponent's card if responding
+    lead_marriage: Suit | None         # marriage suit announced with lead card
     valid_actions: list[Action]
     is_winner_action_phase: bool
     seen_cards: set[tuple[str, str]]   # cards this player has observed
