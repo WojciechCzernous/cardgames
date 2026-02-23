@@ -63,18 +63,18 @@ def cards_to_matrix(
     m1: dict[Suit, int], cards: set[Card] | list[Card]
 ) -> np.ndarray:
     """
-    Encode a set of cards as a 6×4 binary matrix (float32).
+    Encode a set of cards as a 6×4 binary matrix (uint8).
 
     Rows  = ranks  (in RANKS order: 9, J, Q, K, 10, A)
     Cols  = canonical suit indices (0 = trump, 1–3 = sorted others)
 
-    Returns an ndarray of shape (6, 4), dtype float32.
+    Returns an ndarray of shape (6, 4), dtype uint8.
     """
-    mat = np.zeros((6, 4), dtype=np.float32)
+    mat = np.zeros((6, 4), dtype=np.uint8)
     for card in cards:
         rank_idx = RANKS.index(card.rank)
         suit_idx = m1[card.suit]
-        mat[rank_idx, suit_idx] = 1.0
+        mat[rank_idx, suit_idx] = 1
     return mat
 
 
@@ -83,7 +83,7 @@ def cards_to_matrix(
 # ---------------------------------------------------------------------------
 
 def cards_to_flat(m1: dict[Suit, int], cards: set[Card] | list[Card]) -> np.ndarray:
-    """Same as cards_to_matrix but flattened to a 24-element vector (float32)."""
+    """Same as cards_to_matrix but flattened to a 24-element vector (uint8)."""
     return cards_to_matrix(m1, cards).ravel()
 
 
@@ -96,12 +96,12 @@ def _won_plane(
     """
     Encode one player's won-cards plane: 24 card bits + 4 marriage bits + 1 closed bit = 29.
     """
-    plane = np.zeros(29, dtype=np.float32)
+    plane = np.zeros(29, dtype=np.uint8)
     plane[:24] = cards_to_flat(m1, won_cards)
     for suit in marriages:
-        plane[24 + m1[suit]] = 1.0
+        plane[24 + m1[suit]] = 1
     if closed_by_me:
-        plane[28] = 1.0
+        plane[28] = 1
     return plane
 
 
@@ -111,7 +111,7 @@ def _won_plane(
 
 def encode_state(view: "PlayerView") -> np.ndarray:
     """
-    Encode a PlayerView into a fixed-size float32 vector for RL.
+    Encode a PlayerView into a fixed-size uint8 vector for RL.
 
     Layout (all bits use canonical suit mapping):
         [0..28]   — cards won by me         (24) + marriages (4) + closed (1)
@@ -120,7 +120,7 @@ def encode_state(view: "PlayerView") -> np.ndarray:
         [82..105] — visible trump card      (24)  (all zeros if none)
         [106..129]— card on table           (24)  (all zeros if none)
 
-    Total: 130 floats.
+    Total: 130 uint8.
 
     Cards-not-yet-seen can be recovered as the complement of the union
     of all five 24-bit card planes against the full 24-card deck (all ones).
@@ -144,13 +144,13 @@ def encode_state(view: "PlayerView") -> np.ndarray:
     if view.trump_card is not None:
         p3 = cards_to_flat(m1, [view.trump_card])
     else:
-        p3 = np.zeros(24, dtype=np.float32)
+        p3 = np.zeros(24, dtype=np.uint8)
 
     # Plane 4: card on the table (24) — only when responding to a lead
     if view.lead_card is not None:
         p4 = cards_to_flat(m1, [view.lead_card])
     else:
-        p4 = np.zeros(24, dtype=np.float32)
+        p4 = np.zeros(24, dtype=np.uint8)
 
     return np.concatenate([p0, p1, p2, p3, p4])
 
@@ -215,7 +215,7 @@ def valid_action_mask(view: "PlayerView",
     """
     from models import ActionType
 
-    mask = np.zeros(NUM_ACTIONS, dtype=np.float32)
+    mask = np.zeros(NUM_ACTIONS, dtype=np.uint8)
 
     # Check if closing is among valid actions
     can_close = any(a.type == ActionType.CLOSE_GAME for a in view.valid_actions)
@@ -225,8 +225,8 @@ def valid_action_mask(view: "PlayerView",
             continue
         card = view.hand[action.card_index]
         idx = card_to_action_index(card, m1)
-        mask[idx] = 1.0          # play without closing
+        mask[idx] = 1          # play without closing
         if can_close:
-            mask[idx + 24] = 1.0  # close then play
+            mask[idx + 24] = 1  # close then play
 
     return mask

@@ -266,18 +266,54 @@ def collect_samples(
 
 
 # ---------------------------------------------------------------------------
-# Main — collect and time
+# Save / load
 # ---------------------------------------------------------------------------
 
+def save_samples(path: str, samples: list[dict]) -> None:
+    """Save samples to a compressed .npz file.
+
+    Arrays stored:
+        states  — (N, 130) float32
+        actions — (N,)     int32
+        results — (N,)     float32
+        gp      — (N,)     int32
+    """
+    states  = np.array([s["state"] for s in samples], dtype=np.uint8)
+    actions = np.array([s["action"] for s in samples], dtype=np.int32)
+    results = np.array([s["result"] for s in samples], dtype=np.float32)
+    gp      = np.array([s["gp"]     for s in samples], dtype=np.int32)
+    np.savez_compressed(path, states=states, actions=actions,
+                        results=results, gp=gp)
+
+
+def load_samples(path: str) -> dict[str, np.ndarray]:
+    """Load samples from .npz.  Returns dict with keys
+    states, actions, results, gp as numpy arrays."""
+    data = np.load(path)
+    return {k: data[k] for k in data.files}
+
+
+# ---------------------------------------------------------------------------
+# Main — collect, save, and time
+# ---------------------------------------------------------------------------
+
+DATA_DIR = "data"
+
 if __name__ == "__main__":
+    os.makedirs(DATA_DIR, exist_ok=True)
+
     for stage in [6, 7, 8, 9]:
         t0 = time.time()
         samples = collect_samples(target_trick=stage, n_samples=1000)
         elapsed = time.time() - t0
+
+        path = os.path.join(DATA_DIR, f"stage{stage}.npz")
+        save_samples(path, samples)
+
         results = [s["result"] for s in samples]
         wins = sum(1 for r in results if r > 0)
         losses = sum(1 for r in results if r < 0)
         ties = sum(1 for r in results if r == 0)
-        print(f"Stage {stage:2d}: {len(samples):4d} samples in {elapsed:.2f}s "
-              f"(W/L/T: {wins}/{losses}/{ties})")
+        print(f"Stage {stage:2d}: {len(samples):4d} samples → {path}  "
+              f"({elapsed:.2f}s, W/L/T: {wins}/{losses}/{ties})")
 
