@@ -16,10 +16,12 @@ from __future__ import annotations
 
 import os
 import random as _rnd
+import sys
 import time
 from multiprocessing import Pool
 
 import numpy as np
+from tqdm import tqdm
 
 from models import ActionType, Action, TrickResult, RoundResult
 from game import RoundState, Round
@@ -229,6 +231,7 @@ def collect_samples(
     n_samples: int,
     max_attempts: int | None = None,
     n_workers: int | None = None,
+    desc: str | None = None,
 ) -> list[dict]:
     """
     Collect n_samples from Smart-vs-Smart games at trick `target_trick`.
@@ -246,11 +249,14 @@ def collect_samples(
     if n_workers is None:
         n_workers = os.cpu_count() or 4
 
-    # Use multiprocessing: submit batches of games, collect results
     samples: list[dict] = []
     remaining = max_attempts
+    bar_desc = desc or f"trick {target_trick}"
 
-    with Pool(n_workers) as pool:
+    with Pool(n_workers) as pool, \
+         tqdm(total=n_samples, desc=bar_desc, unit="s",
+              bar_format="{desc}: {bar}| {n_fmt}/{total_fmt} "
+                         "[{elapsed}<{remaining}, {rate_fmt}]") as pbar:
         while len(samples) < n_samples and remaining > 0:
             batch = min(remaining, (n_samples - len(samples)) * 3, 512)
             remaining -= batch
@@ -259,6 +265,7 @@ def collect_samples(
             for r in results:
                 if r is not None:
                     samples.append(r)
+                    pbar.update(1)
                     if len(samples) >= n_samples:
                         break
 
@@ -298,13 +305,16 @@ def load_samples(path: str) -> dict[str, np.ndarray]:
 # ---------------------------------------------------------------------------
 
 DATA_DIR = "data"
+DEFAULT_N = 1_000_000
 
 if __name__ == "__main__":
+    n = int(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_N
     os.makedirs(DATA_DIR, exist_ok=True)
 
     for stage in [6, 7, 8, 9]:
         t0 = time.time()
-        samples = collect_samples(target_trick=stage, n_samples=1000)
+        samples = collect_samples(
+            target_trick=stage, n_samples=n, desc=f"stage {stage}")
         elapsed = time.time() - t0
 
         path = os.path.join(DATA_DIR, f"stage{stage}.npz")
@@ -314,6 +324,6 @@ if __name__ == "__main__":
         wins = sum(1 for r in results if r > 0)
         losses = sum(1 for r in results if r < 0)
         ties = sum(1 for r in results if r == 0)
-        print(f"Stage {stage:2d}: {len(samples):4d} samples → {path}  "
-              f"({elapsed:.2f}s, W/L/T: {wins}/{losses}/{ties})")
+        print(f"Stage {stage:2d}: {len(samples):,d} samples → {path}  "
+              f"({elapsed:.1f}s, W/L/T: {wins}/{losses}/{ties})")
 
