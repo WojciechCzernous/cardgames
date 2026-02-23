@@ -85,7 +85,13 @@ class RandomPlayer(Player):
 
 
 class GreedyPlayer(Player):
-    """Prefers marriages (trump first) and plays highest-value cards."""
+    """
+    Heuristic player:
+      - Announces marriages (trump first).
+      - Leading: plays lowest card, conserving trumps.
+      - Following: beats high-value leads (> J) with strongest card;
+        uses trumps only if lead > K.  Falls back to lowest card.
+    """
 
     def __init__(self, name: str = "Greedy"):
         super().__init__(name)
@@ -99,7 +105,7 @@ class GreedyPlayer(Player):
                 return swaps[0]
             return Action(ActionType.PASS)
 
-        # Prefer marriages
+        # Prefer marriages (trump marriage first)
         marriages = [a for a in va if a.marriage_suit]
         if marriages:
             trump_m = [a for a in marriages
@@ -108,12 +114,67 @@ class GreedyPlayer(Player):
                 return random.choice(trump_m)
             return random.choice(marriages)
 
-        # Highest-value play
         plays = [a for a in va if a.type.value == "play_card"]
-        if plays:
-            return max(plays, key=lambda a: view.hand[a.card_index].value())
+        if not plays:
+            return random.choice(va)
 
-        return random.choice(va)
+        if view.is_leading or view.lead_card is None:
+            return self._pick_lead(plays, view)
+        return self._pick_response(plays, view)
+
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _card_sort_key(card: Card, trump_suit) -> tuple[int, int]:
+        """(is_trump, value) — for ascending sort: non-trump low first."""
+        return (1 if card.suit == trump_suit else 0, card.value())
+
+    def _pick_lead(self, plays: list[Action], view: PlayerView) -> Action:
+        """Leading: play the lowest card, conserving trumps."""
+        return min(
+            plays,
+            key=lambda a: self._card_sort_key(view.hand[a.card_index],
+                                              view.trump_suit),
+        )
+
+    def _pick_response(self, plays: list[Action], view: PlayerView) -> Action:
+        """
+        Following:
+          - If lead card value > J (2): try to beat with strongest card.
+            Don't use trumps unless lead value > K (4).
+          - Otherwise (or if can't beat): play lowest card.
+        """
+        from rules import card_strength, RANK_VALUES
+
+        lead = view.lead_card
+        trump = view.trump_suit
+        lead_suit = lead.suit
+        lead_str = card_strength(lead, lead_suit, trump)
+
+        if lead.value() > RANK_VALUES[" J"]:  # worth beating (Q, K, 10, A)
+            allow_trump = lead.value() > RANK_VALUES[" K"]  # 10 or A
+
+            beaters = []
+            for a in plays:
+                card = view.hand[a.card_index]
+                if card_strength(card, lead_suit, trump) > lead_str:
+                    if card.suit == trump and lead_suit != trump and not allow_trump:
+                        continue  # conserve trump
+                    beaters.append(a)
+
+            if beaters:
+                # Pick strongest beater
+                return max(
+                    beaters,
+                    key=lambda a: card_strength(
+                        view.hand[a.card_index], lead_suit, trump),
+                )
+
+        # Can't beat or not worth it — play lowest card
+        return min(
+            plays,
+            key=lambda a: self._card_sort_key(view.hand[a.card_index], trump),
+        )
 
 
 class SmartPlayer(Player):
