@@ -14,10 +14,14 @@ Each sample is:
 
 from __future__ import annotations
 
+import os
+import random as _rnd
 import time
+from multiprocessing import Pool
+
 import numpy as np
 
-from models import ActionType
+from models import ActionType, Action, TrickResult, RoundResult
 from game import RoundState, Round
 from agents import SmartPlayer
 from features import (
@@ -46,7 +50,6 @@ class SamplingRound(Round):
 
     def play_trick(self):
         """Override to intercept one player's view at the target trick."""
-        import random as _rnd
         st = self.state
         capture = (self._trick_num == self.target_trick)
         leader = st.leader
@@ -77,7 +80,6 @@ class SamplingRound(Round):
                     idx = i
                     break
             if idx is not None:
-                from models import Action
                 enc = encode_action(
                     Action(ActionType.PLAY_CARD, card_index=idx),
                     view_l.hand, m1_l, close=False)
@@ -107,7 +109,6 @@ class SamplingRound(Round):
                     idx = i
                     break
             if idx is not None:
-                from models import Action
                 enc = encode_action(
                     Action(ActionType.PLAY_CARD, card_index=idx),
                     view_f.hand, m1_f, close=False)
@@ -144,7 +145,6 @@ class SamplingRound(Round):
                                   match_scores=self.match_scores)
             self.players[seat].notify_trick_cards(view, cards, leader, marriages)
 
-        from models import TrickResult
         result = TrickResult(
             cards=cards, winner=winner,
             trick_points=trick_points, marriages=marriages,
@@ -196,7 +196,6 @@ class SamplingRound(Round):
                 self.sample["result"] = -1.0
                 self.sample["gp"] = game_points
 
-        from models import RoundResult
         return RoundResult(
             winner=winner, game_points=game_points,
             scores=dict(st.scores), closed=st.closed,
@@ -208,14 +207,33 @@ class SamplingRound(Round):
 # Sampler
 # ---------------------------------------------------------------------------
 
+def _run_one_game(target_trick: int) -> dict | None:
+    """Play one Smart-vs-Smart game, return sample dict or None."""
+    p0 = SmartPlayer("S0")
+    p1 = SmartPlayer("S1")
+    rnd = SamplingRound([p0, p1], target_trick=target_trick)
+    rnd.play()
+    if rnd.sample is not None and "result" in rnd.sample:
+        s = rnd.sample
+        return {
+            "state": s["state"],
+            "action": s["action"],
+            "result": s["result"],
+            "gp": s["gp"],
+        }
+    return None
+
+
 def collect_samples(
     target_trick: int,
     n_samples: int,
     max_attempts: int | None = None,
+    n_workers: int | None = None,
 ) -> list[dict]:
     """
     Collect n_samples from Smart-vs-Smart games at trick `target_trick`.
     Captures one sample per game (leader or follower, 50/50).
+    Uses multiprocessing for speed (n_workers defaults to CPU count).
 
     Returns list of dicts with keys:
         state  (np.ndarray, 130)
@@ -225,28 +243,26 @@ def collect_samples(
     """
     if max_attempts is None:
         max_attempts = n_samples * 10
+    if n_workers is None:
+        n_workers = os.cpu_count() or 4
 
-    samples = []
-    attempts = 0
+    # Use multiprocessing: submit batches of games, collect results
+    samples: list[dict] = []
+    remaining = max_attempts
 
-    while len(samples) < n_samples and attempts < max_attempts:
-        attempts += 1
+    with Pool(n_workers) as pool:
+        while len(samples) < n_samples and remaining > 0:
+            batch = min(remaining, (n_samples - len(samples)) * 3, 512)
+            remaining -= batch
+            results = pool.map(
+                _run_one_game, [target_trick] * batch)
+            for r in results:
+                if r is not None:
+                    samples.append(r)
+                    if len(samples) >= n_samples:
+                        break
 
-        p0 = SmartPlayer("S0")
-        p1 = SmartPlayer("S1")
-        rnd = SamplingRound([p0, p1], target_trick=target_trick)
-        rnd.play()
-
-        if rnd.sample is not None and "result" in rnd.sample:
-            s = rnd.sample
-            samples.append({
-                "state": s["state"],
-                "action": s["action"],
-                "result": s["result"],
-                "gp": s["gp"],
-            })
-
-    return samples
+    return samples[:n_samples]
 
 
 # ---------------------------------------------------------------------------
