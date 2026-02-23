@@ -61,7 +61,7 @@ class SamplingRound(Round):
         view_l = st.player_view(leader, lead_card=None,
                                 match_scores=self.match_scores)
         if capture and capture_leader:
-            m1_l, _ = build_suit_map(view_l.hand, view_l.trump_suit)
+            m1_l, m2_l = build_suit_map(view_l.hand, view_l.trump_suit)
             state_l = encode_state(view_l)
 
         action_l = self.players[leader].choose_action(view_l)
@@ -83,7 +83,7 @@ class SamplingRound(Round):
                     view_l.hand, m1_l, close=False)
                 self.sample = {
                     "state": state_l, "action": enc,
-                    "_seat": leader,
+                    "_seat": leader, "_m2": m2_l,
                 }
 
         # --- Follower plays (sees leader's card) ---
@@ -91,7 +91,7 @@ class SamplingRound(Round):
                                 match_scores=self.match_scores)
         view_f.lead_marriage = action_l.marriage_suit
         if capture and not capture_leader:
-            m1_f, _ = build_suit_map(view_f.hand, view_f.trump_suit)
+            m1_f, m2_f = build_suit_map(view_f.hand, view_f.trump_suit)
             state_f = encode_state(view_f)
 
         action_f = self.players[follower].choose_action(view_f)
@@ -113,7 +113,7 @@ class SamplingRound(Round):
                     view_f.hand, m1_f, close=False)
                 self.sample = {
                     "state": state_f, "action": enc,
-                    "_seat": follower,
+                    "_seat": follower, "_m2": m2_f,
                 }
 
         # --- Resolve trick (same as base) ---
