@@ -89,6 +89,12 @@ class PlayerView:
     seen_cards: set[tuple[str, str]]   # cards this player has observed
     played_cards: set[Card] = field(default_factory=set)  # cards played in completed tricks
 
+    # Per-player cards won in tricks and marriages announced
+    won_cards_me: list[Card] = field(default_factory=list)
+    won_cards_opp: list[Card] = field(default_factory=list)
+    marriages_me: set[Suit] = field(default_factory=set)    # suits where I announced marriage
+    marriages_opp: set[Suit] = field(default_factory=set)    # suits where opponent announced marriage
+
     # Additional context for display (not used by agents)
     opponent_hand_size: int = 0
     opponent_hand: list[Card] | None = None   # set when hand is revealed

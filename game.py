@@ -70,6 +70,10 @@ class RoundState:
         # Cards that have been played in tricks (public knowledge)
         self.played_cards: list[Card] = []
 
+        # Per-player cards won in tricks and marriages announced
+        self.won_cards: dict[int, list[Card]] = {0: [], 1: []}
+        self.announced_marriages: dict[int, set[Suit]] = {0: set(), 1: set()}
+
         # Display helpers (not game logic)
         self.last_drawn: dict[int, Card | None] = {0: None, 1: None}
         self.last_trick_info: str = ""
@@ -120,6 +124,10 @@ class RoundState:
             is_winner_action_phase=is_winner_action,
             seen_cards=set(self.seen_cards[seat]),
             played_cards=set(self.played_cards),
+            won_cards_me=list(self.won_cards[seat]),
+            won_cards_opp=list(self.won_cards[opp]),
+            marriages_me=set(self.announced_marriages[seat]),
+            marriages_opp=set(self.announced_marriages[opp]),
             opponent_hand_size=len(self.hands[opp]),
             opponent_hand=list(self.hands[opp]),
             last_trick_info=self.last_trick_info,
@@ -271,6 +279,13 @@ class Round:
         st.leader = winner
         st.played_cards.append(card_l)
         st.played_cards.append(card_f)
+        st.won_cards[winner].append(card_l)
+        st.won_cards[winner].append(card_f)
+        for s in (0, 1):
+            if marriages[s]:
+                suit = action_l.marriage_suit if s == leader else action_f.marriage_suit
+                if suit:
+                    st.announced_marriages[s].add(suit)
 
         # Check for 66
         for s in (0, 1):
