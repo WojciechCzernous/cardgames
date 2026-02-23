@@ -156,8 +156,6 @@ class SmartPlayer(Player):
         solver = EndgameSolver(
             trump_suit=view.trump_suit,
             my_seat=view.seat,
-            closed=view.closed,
-            closed_by=view.closed_by,
         )
         idx, mar_suit, _val = solver.best_action(
             hands, scores, leader, lead_card)

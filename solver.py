@@ -6,8 +6,11 @@ When both hands are known the game tree is small enough
 (≤6 cards per side → max 720² leaf nodes before pruning)
 to solve exactly with memoised minimax.
 
+Note: closing the game is only possible while the draw pile is non-empty,
+so the solver only runs when the pile emptied naturally — closed is always False.
+
 Usage:
-    solver = EndgameSolver(trump_suit, my_seat, closed, closed_by)
+    solver = EndgameSolver(trump_suit, my_seat)
     idx, marriage, value = solver.best_action(hands, scores, leader, lead_card)
 """
 
@@ -20,12 +23,9 @@ import rules
 class EndgameSolver:
     """Minimax solver for the Sixty-Six endgame with perfect information."""
 
-    def __init__(self, trump_suit: Suit, my_seat: int,
-                 closed: bool = False, closed_by: int | None = None):
+    def __init__(self, trump_suit: Suit, my_seat: int):
         self.trump_suit = trump_suit
         self.my_seat = my_seat
-        self.closed = closed
-        self.closed_by = closed_by
         self._cache: dict = {}
 
     # ------------------------------------------------------------------ #
@@ -213,7 +213,7 @@ class EndgameSolver:
     def _terminal_value(self, scores, round_winner) -> float:
         """Evaluate terminal position from my_seat's perspective."""
         winner, gp = rules.compute_game_points(
-            scores, round_winner, self.closed, self.closed_by)
+            scores, round_winner, closed=False, closed_by=None)
         if winner == self.my_seat:
             return float(gp)
         elif winner is not None:

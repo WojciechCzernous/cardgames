@@ -72,12 +72,9 @@ class TreeNode:
 class TracingSolver:
     """Minimax solver that builds a game tree for visualization."""
 
-    def __init__(self, trump_suit: Suit, my_seat: int,
-                 closed: bool = False, closed_by: int | None = None):
+    def __init__(self, trump_suit: Suit, my_seat: int):
         self.trump_suit = trump_suit
         self.my_seat = my_seat
-        self.closed = closed
-        self.closed_by = closed_by
 
     def solve_tree(self, hands, scores, leader) -> TreeNode:
         """Solve and return the root TreeNode."""
@@ -164,7 +161,7 @@ class TracingSolver:
 
     def _terminal_node(self, scores, round_winner) -> TreeNode:
         winner, gp = rules.compute_game_points(
-            scores, round_winner, self.closed, self.closed_by)
+            scores, round_winner, closed=False, closed_by=None)
         if winner == self.my_seat:
             val = float(gp)
         elif winner is not None:
@@ -300,8 +297,6 @@ def main():
         # Run solver
         solver = EndgameSolver(
             trump_suit=tc["trump"], my_seat=tc["my_seat"],
-            closed=tc.get("closed", False),
-            closed_by=tc.get("closed_by"),
         )
         idx, mar, val = solver.best_action(
             {k: list(v) for k, v in tc["hands"].items()},
@@ -332,8 +327,6 @@ def main():
             print()
             tracer = TracingSolver(
                 trump_suit=tc["trump"], my_seat=tc["my_seat"],
-                closed=tc.get("closed", False),
-                closed_by=tc.get("closed_by"),
             )
             tree = tracer.solve_tree(
                 {k: list(v) for k, v in tc["hands"].items()},
