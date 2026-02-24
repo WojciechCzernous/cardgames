@@ -305,13 +305,13 @@ def load_samples(path: str) -> dict[str, np.ndarray]:
 # ---------------------------------------------------------------------------
 
 DATA_DIR = "data"
-DEFAULT_N = 1_000_000
+DEFAULT_N = 500_000
 
 if __name__ == "__main__":
     n = int(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_N
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    for stage in [6, 7, 8, 9]:
+    for stage in [9]:
         t0 = time.time()
         samples = collect_samples(
             target_trick=stage, n_samples=n, desc=f"stage {stage}")
