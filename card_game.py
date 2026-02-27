@@ -6,6 +6,7 @@ Usage:
     python card_game.py greedy       # play vs greedy bot
     python card_game.py --reveal     # show bot hand when draw pile is empty
     python card_game.py --PlayerView # show raw PlayerView fields
+    python card_game.py --marriage   # force human's hand to include a marriage
 """
 
 import sys
@@ -29,6 +30,7 @@ def main():
     bot_name = args[0].lower() if args else "random"
     reveal = "--reveal" in flags
     show_player_view = "--PlayerView" in flags
+    force_marriage = "--marriage" in flags
 
     if bot_name not in BOT_TYPES:
         print(f"Unknown bot: {bot_name}")
@@ -47,7 +49,8 @@ def main():
     print()
 
     while True:
-        match = Match(players)
+        match = Match(players,
+                      force_marriage_seat=0 if force_marriage else None)
         match.play()
         if not ui.prompt_play_again():
             break

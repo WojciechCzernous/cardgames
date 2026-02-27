@@ -99,15 +99,6 @@ class GreedyPlayer(Player):
                 return swaps[0]
             return Action(ActionType.PASS)
 
-        # Prefer marriages
-        marriages = [a for a in va if a.marriage_suit]
-        if marriages:
-            trump_m = [a for a in marriages
-                       if a.marriage_suit == view.trump_suit]
-            if trump_m:
-                return random.choice(trump_m)
-            return random.choice(marriages)
-
         # Highest-value play
         plays = [a for a in va if a.type.value == "play_card"]
         if plays:
@@ -160,8 +151,7 @@ class SmartPlayer(Player):
         idx, mar_suit, _val = solver.best_action(
             hands, scores, leader, lead_card)
 
-        return Action(ActionType.PLAY_CARD,
-                      card_index=idx, marriage_suit=mar_suit)
+        return Action(ActionType.PLAY_CARD, card_index=idx)
 
 
 # ---------------------------------------------------------------------------

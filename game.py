@@ -39,7 +39,7 @@ class RoundState:
     Pure data — no decision-making, no UI.
     """
 
-    def __init__(self, first_seat: int = 0):
+    def __init__(self, first_seat: int = 0, force_marriage_seat: int | None = None):
         deck = create_deck()
         random.shuffle(deck)
 
@@ -47,6 +47,17 @@ class RoundState:
         for _ in range(6):
             self.hands[0].append(deck.pop())
             self.hands[1].append(deck.pop())
+
+        # If requested, re-deal until the target seat has a marriage
+        if force_marriage_seat is not None:
+            from rules import find_marriages
+            while not find_marriages(self.hands[force_marriage_seat]):
+                deck = create_deck()
+                random.shuffle(deck)
+                self.hands = {0: [], 1: []}
+                for _ in range(6):
+                    self.hands[0].append(deck.pop())
+                    self.hands[1].append(deck.pop())
 
         self.trump_card: Card | None = deck.pop()
         self.trump_suit: Suit = self.trump_card.suit
@@ -143,21 +154,23 @@ class Round:
     Both seats are symmetric Player agents.
     """
 
-    def __init__(self, players: dict[int, "Player"], first_seat: int | None = None):
+    def __init__(self, players: dict[int, "Player"], first_seat: int | None = None,
+                 force_marriage_seat: int | None = None):
         if first_seat is None:
             first_seat = random.choice([0, 1])
         self.players = players
-        self.state = RoundState(first_seat)
+        self.state = RoundState(first_seat, force_marriage_seat=force_marriage_seat)
         self.match_scores: dict[int, int] = {0: 0, 1: 0}
+        self._current_lead_card: Card | None = None  # used by execute_action
 
     # ------------------------------------------------------------------
     # Action execution (mutates RoundState)
     # ------------------------------------------------------------------
 
-    def execute_action(self, seat: int, action: Action) -> tuple[Card | None, int]:
+    def execute_action(self, seat: int, action: Action) -> tuple[Card | None, int, Suit | None]:
         """
         Apply *action* by *seat* to the round state.
-        Returns (card_played, marriage_points).
+        Returns (card_played, marriage_points, marriage_suit).
         """
         st = self.state
         hand = st.hands[seat]
@@ -173,15 +186,15 @@ class Round:
                 # Both players see the new face-up trump
                 st.player_sees_card(0, nine)
                 st.player_sees_card(1, nine)
-            return None, 0
+            return None, 0, None
 
         if at == "close_game":
             st.closed = True
             st.closed_by = seat
-            return None, 0
+            return None, 0, None
 
         if at == "pass":
-            return None, 0
+            return None, 0, None
 
         if at == "play_card":
             card = hand[action.card_index]
@@ -191,15 +204,29 @@ class Round:
             # Opponent sees the played card
             st.player_sees_card(opp, card)
 
-            # Marriage announcement reveals K + Q to opponent
+            # Auto-detect marriage: if leading with K or Q from a pair
             marriage_points = 0
             if action.marriage_suit:
-                st.player_sees_card(opp, Card(" K", action.marriage_suit))
-                st.player_sees_card(opp, Card(" Q", action.marriage_suit))
-                marriage_points = rules.marriage_value(action.marriage_suit, st.trump_suit)
-            return card, marriage_points
+                # Legacy path (e.g. solver still passes explicit marriage)
+                mar_suit = action.marriage_suit
+            elif (self._current_lead_card is None
+                  and card.rank in (" K", " Q")):
+                partner_rank = " Q" if card.rank == " K" else " K"
+                if any(c.rank == partner_rank and c.suit == card.suit
+                       for c in hand):
+                    mar_suit = card.suit
+                else:
+                    mar_suit = None
+            else:
+                mar_suit = None
 
-        return None, 0
+            if mar_suit:
+                st.player_sees_card(opp, Card(" K", mar_suit))
+                st.player_sees_card(opp, Card(" Q", mar_suit))
+                marriage_points = rules.marriage_value(mar_suit, st.trump_suit)
+            return card, marriage_points, mar_suit
+
+        return None, 0, None
 
     # ------------------------------------------------------------------
     # Drawing
@@ -247,20 +274,22 @@ class Round:
         marriages: dict[int, int] = {0: 0, 1: 0}
 
         # --- Leader plays ---
+        self._current_lead_card = None          # signal: this is the lead
         view_l = st.player_view(leader, lead_card=None,
                                 match_scores=self.match_scores)
         action_l = self.players[leader].choose_action(view_l)
-        card_l, mar_l = self.execute_action(leader, action_l)
+        card_l, mar_l, mar_suit_l = self.execute_action(leader, action_l)
         if mar_l:
             marriages[leader] = mar_l
             st.scores[leader] += mar_l
 
         # --- Follower plays (sees leader's card) ---
+        self._current_lead_card = card_l        # signal: this is a response
         view_f = st.player_view(follower, lead_card=card_l,
                                 match_scores=self.match_scores)
-        view_f.lead_marriage = action_l.marriage_suit
+        view_f.lead_marriage = mar_suit_l
         action_f = self.players[follower].choose_action(view_f)
-        card_f, mar_f = self.execute_action(follower, action_f)
+        card_f, mar_f, _mar_suit_f = self.execute_action(follower, action_f)
         if mar_f:
             marriages[follower] = mar_f
             st.scores[follower] += mar_f
@@ -392,11 +421,13 @@ class Match:
 
     WIN_POINTS = 7
 
-    def __init__(self, players: dict[int, "Player"]):
+    def __init__(self, players: dict[int, "Player"],
+                 force_marriage_seat: int | None = None):
         self.players = players
         self.game_points: dict[int, int] = {0: 0, 1: 0}
         self.round_number = 0
         self.first_seat: int = random.choice([0, 1])
+        self._force_marriage_seat = force_marriage_seat
 
         self._next_round: Round | None = None
 
@@ -411,7 +442,8 @@ class Match:
                 rnd = self._next_round
                 self._next_round = None
             else:
-                rnd = Round(self.players, first_seat=self.first_seat)
+                rnd = Round(self.players, first_seat=self.first_seat,
+                            force_marriage_seat=self._force_marriage_seat)
                 # Show dealing animation for the first round
                 for seat in (0, 1):
                     self.players[seat].notify_next_round(
@@ -425,7 +457,8 @@ class Match:
 
             if all(gp < self.WIN_POINTS for gp in self.game_points.values()):
                 # Create next round early so we can show the dealt hand
-                self._next_round = Round(self.players, first_seat=self.first_seat)
+                self._next_round = Round(self.players, first_seat=self.first_seat,
+                                         force_marriage_seat=self._force_marriage_seat)
                 for seat in (0, 1):
                     self.players[seat].notify_next_round(
                         list(self._next_round.state.hands[seat]))

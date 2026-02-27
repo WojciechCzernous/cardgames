@@ -192,15 +192,19 @@ class EndgameSolver:
     # ------------------------------------------------------------------ #
 
     def _leader_options(self, hand: list[Card]):
-        """Yield (card, marriage_suit | None) for each legal lead."""
+        """Yield (card, marriage_suit | None) for each legal lead.
+
+        Marriage is auto-detected: if the card is a K or Q and the
+        partner is still in hand, the marriage suit is yielded.
+        """
         marriages = rules.find_marriages(hand)
         for card in hand:
-            # Marriage announcement option (play K or Q and declare)
+            mar_suit = None
             for suit in marriages:
                 if card.suit == suit and card.rank in (" K", " Q"):
-                    yield card, suit
-            # Plain play (always available)
-            yield card, None
+                    mar_suit = suit
+                    break
+            yield card, mar_suit
 
     def _resolve_trick(self, lead_card, resp_card, leader, follower):
         """Return (winner_seat, trick_points)."""

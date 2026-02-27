@@ -203,8 +203,8 @@ class TerminalUI:
     # ------------------------------------------------------------------
 
     def prompt_card_play(self, view: PlayerView) -> Action:
-        marriages = list(set(
-            a.marriage_suit for a in view.valid_actions if a.marriage_suit))
+        from rules import find_marriages, marriage_value
+        marriages = find_marriages(view.hand) if view.is_leading else []
         error_msg = ""
 
         while True:
@@ -223,9 +223,9 @@ class TerminalUI:
                 lead_msg = ">>> Your lead!"
                 if marriages:
                     parts = [
-                        f"{colored_suit(s)} ({40 if s == view.trump_suit else 20}pts)"
+                        f"{colored_suit(s)} ({marriage_value(s, view.trump_suit)}pts)"
                         for s in marriages]
-                    lead_msg += f"  Marriages: {', '.join(parts)}"
+                    lead_msg += f"  Marriages available: {', '.join(parts)}"
                 print(lead_msg)
 
             if error_msg:
@@ -233,65 +233,20 @@ class TerminalUI:
                 error_msg = ""
 
             try:
-                prompt = f"\nPlay card [1-{len(view.hand)}]"
-                if marriages:
-                    prompt += " or [M] to announce marriage"
-                prompt += ": "
+                prompt = f"\nPlay card [1-{len(view.hand)}]: "
                 choice = input(prompt).strip().lower()
-
-                if choice == 'm' and marriages:
-                    return self._prompt_marriage(view, marriages)
 
                 idx = int(choice) - 1
                 if 0 <= idx < len(view.hand):
                     for action in view.valid_actions:
                         if (action.type.value == "play_card"
-                                and action.card_index == idx
-                                and not action.marriage_suit):
+                                and action.card_index == idx):
                             return action
                     error_msg = "Invalid card for current situation!"
                 else:
                     error_msg = "Invalid card number!"
             except ValueError:
                 error_msg = "Please enter a number!"
-
-    def _prompt_marriage(self, view: PlayerView,
-                         marriages: list[Suit]) -> Action:
-        while True:
-            self.clear_screen()
-            print("Announce marriage:")
-            for i, suit in enumerate(marriages):
-                pts = 40 if suit == view.trump_suit else 20
-                print(f"  [{i+1}] {colored_suit(suit)} marriage (+{pts} points)")
-            print("  [0] Cancel")
-            try:
-                idx = int(input("\nChoose marriage: ").strip())
-                if idx == 0:
-                    self.display_state(view)
-                    return self.prompt_card_play(view)
-                if 1 <= idx <= len(marriages):
-                    suit = marriages[idx - 1]
-                    king_idx = queen_idx = None
-                    for i, c in enumerate(view.hand):
-                        if c.suit == suit:
-                            if c.rank == " K":
-                                king_idx = i
-                            elif c.rank == " Q":
-                                queen_idx = i
-
-                    self.clear_screen()
-                    print(f"{colored_suit(suit)} Marriage! Play which card?")
-                    print(f"  [1] {card_str(view.hand[king_idx])}")
-                    print(f"  [2] {card_str(view.hand[queen_idx])}")
-                    cc = input("\nYour choice: ").strip()
-                    if cc == '1':
-                        return Action(ActionType.PLAY_CARD,
-                                      card_index=king_idx, marriage_suit=suit)
-                    elif cc == '2':
-                        return Action(ActionType.PLAY_CARD,
-                                      card_index=queen_idx, marriage_suit=suit)
-            except (ValueError, TypeError):
-                pass
 
     # ------------------------------------------------------------------
     # Winner action prompt

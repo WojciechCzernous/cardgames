@@ -97,14 +97,9 @@ def get_valid_actions(hand: list[Card], trump_suit: Suit, trump_card: Card | Non
         return actions
 
     valid_cards = get_valid_cards(hand, lead_card, trump_suit, phase)
-    marriages = find_marriages(hand) if lead_card is None else []
 
     for i, card in enumerate(hand):
         if card in valid_cards:
-            for suit in marriages:
-                if card.suit == suit and card.rank in (" K", " Q"):
-                    actions.append(Action(ActionType.PLAY_CARD, card_index=i,
-                                          marriage_suit=suit))
             actions.append(Action(ActionType.PLAY_CARD, card_index=i))
 
     return actions
