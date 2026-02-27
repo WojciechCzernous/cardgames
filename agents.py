@@ -9,10 +9,42 @@ import random
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-from models import Action, ActionType, Card, PlayerView, TrickResult, RoundResult, MatchResult
+from models import Action, ActionType, Card, PlayerView, TrickResult, RoundResult, MatchResult, RANK_VALUES
 
 if TYPE_CHECKING:
     from ui import TerminalUI
+
+
+# ---------------------------------------------------------------------------
+# Swap-trump probability helper
+# ---------------------------------------------------------------------------
+
+def _should_swap_trump(view: PlayerView) -> bool:
+    """
+    Decide whether to swap 9-of-trump for the face-up trump card.
+
+    Probability depends on the trump card's rank:
+      - 10 or A           → 100%
+      - K or Q with partner in hand → 100%
+      - K or Q without partner       →  80%
+      - J or 9                        →  50%
+    """
+    tc = view.trump_card
+    if tc is None:
+        return False
+
+    if tc.rank in ("10", " A"):
+        p = 1.0
+    elif tc.rank in (" K", " Q"):
+        partner_rank = " Q" if tc.rank == " K" else " K"
+        if any(c.rank == partner_rank and c.suit == tc.suit for c in view.hand):
+            p = 1.0
+        else:
+            p = 0.8
+    else:
+        p = 0.5
+
+    return random.random() < p
 
 
 # ---------------------------------------------------------------------------
@@ -78,7 +110,7 @@ class RandomPlayer(Player):
         if view.is_winner_action_phase:
             swaps = [a for a in view.valid_actions
                      if a.type.value == "swap_trump"]
-            if swaps:
+            if swaps and _should_swap_trump(view):
                 return swaps[0]
             return Action(ActionType.PASS)
         return random.choice(view.valid_actions)
@@ -95,7 +127,7 @@ class GreedyPlayer(Player):
 
         if view.is_winner_action_phase:
             swaps = [a for a in va if a.type.value == "swap_trump"]
-            if swaps:
+            if swaps and _should_swap_trump(view):
                 return swaps[0]
             return Action(ActionType.PASS)
 
