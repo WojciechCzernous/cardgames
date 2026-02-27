@@ -7,6 +7,7 @@ Usage:
     python card_game.py --reveal     # show bot hand when draw pile is empty
     python card_game.py --PlayerView # show raw PlayerView fields
     python card_game.py --marriage   # force human's hand to include a marriage
+    python card_game.py --nine-trump # force human's hand to include 9 of trump
 """
 
 import sys
@@ -31,6 +32,7 @@ def main():
     reveal = "--reveal" in flags
     show_player_view = "--PlayerView" in flags
     force_marriage = "--marriage" in flags
+    force_nine_trump = "--nine-trump" in flags
 
     if bot_name not in BOT_TYPES:
         print(f"Unknown bot: {bot_name}")
@@ -50,7 +52,8 @@ def main():
 
     while True:
         match = Match(players,
-                      force_marriage_seat=0 if force_marriage else None)
+                      force_marriage_seat=0 if force_marriage else None,
+                      force_nine_trump_seat=0 if force_nine_trump else None)
         match.play()
         if not ui.prompt_play_again():
             break

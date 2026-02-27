@@ -32,6 +32,7 @@ python card_game.py smart        # play vs smart bot (minimax endgame)
 python card_game.py smart --reveal  # smart bot + show opponent hand in phase 2
 python card_game.py smart --PlayerView  # show raw PlayerView fields each turn
 python card_game.py smart --marriage    # force human's hand to include a marriage
+python card_game.py smart --nine-trump  # force human's hand to include 9 of trump
 python train.py                  # run headless training
 ```
 

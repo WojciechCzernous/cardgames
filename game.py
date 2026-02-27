@@ -39,7 +39,9 @@ class RoundState:
     Pure data — no decision-making, no UI.
     """
 
-    def __init__(self, first_seat: int = 0, force_marriage_seat: int | None = None):
+    def __init__(self, first_seat: int = 0,
+                 force_marriage_seat: int | None = None,
+                 force_nine_trump_seat: int | None = None):
         deck = create_deck()
         random.shuffle(deck)
 
@@ -62,6 +64,26 @@ class RoundState:
         self.trump_card: Card | None = deck.pop()
         self.trump_suit: Suit = self.trump_card.suit
         self.draw_pile: list[Card] = deck          # remaining 11 cards
+
+        # If requested, re-deal until the target seat has the 9 of trump
+        if force_nine_trump_seat is not None:
+            from rules import find_nine_trump
+            while not find_nine_trump(self.hands[force_nine_trump_seat],
+                                      self.trump_suit):
+                deck = create_deck()
+                random.shuffle(deck)
+                self.hands = {0: [], 1: []}
+                for _ in range(6):
+                    self.hands[0].append(deck.pop())
+                    self.hands[1].append(deck.pop())
+                self.trump_card = deck.pop()
+                self.trump_suit = self.trump_card.suit
+                self.draw_pile = deck
+                # Re-check marriage constraint too
+                if force_marriage_seat is not None:
+                    from rules import find_marriages
+                    if not find_marriages(self.hands[force_marriage_seat]):
+                        continue
 
         self.scores: dict[int, int] = {0: 0, 1: 0}
         self.leader: int = first_seat              # who leads the next trick
@@ -155,11 +177,14 @@ class Round:
     """
 
     def __init__(self, players: dict[int, "Player"], first_seat: int | None = None,
-                 force_marriage_seat: int | None = None):
+                 force_marriage_seat: int | None = None,
+                 force_nine_trump_seat: int | None = None):
         if first_seat is None:
             first_seat = random.choice([0, 1])
         self.players = players
-        self.state = RoundState(first_seat, force_marriage_seat=force_marriage_seat)
+        self.state = RoundState(first_seat,
+                                force_marriage_seat=force_marriage_seat,
+                                force_nine_trump_seat=force_nine_trump_seat)
         self.match_scores: dict[int, int] = {0: 0, 1: 0}
         self._current_lead_card: Card | None = None  # used by execute_action
 
@@ -422,12 +447,14 @@ class Match:
     WIN_POINTS = 7
 
     def __init__(self, players: dict[int, "Player"],
-                 force_marriage_seat: int | None = None):
+                 force_marriage_seat: int | None = None,
+                 force_nine_trump_seat: int | None = None):
         self.players = players
         self.game_points: dict[int, int] = {0: 0, 1: 0}
         self.round_number = 0
         self.first_seat: int = random.choice([0, 1])
         self._force_marriage_seat = force_marriage_seat
+        self._force_nine_trump_seat = force_nine_trump_seat
 
         # If forcing a marriage, that seat leads first so they can use it
         if force_marriage_seat is not None:
@@ -447,7 +474,8 @@ class Match:
                 self._next_round = None
             else:
                 rnd = Round(self.players, first_seat=self.first_seat,
-                            force_marriage_seat=self._force_marriage_seat)
+                            force_marriage_seat=self._force_marriage_seat,
+                            force_nine_trump_seat=self._force_nine_trump_seat)
                 # Show dealing animation for the first round
                 for seat in (0, 1):
                     self.players[seat].notify_next_round(
@@ -462,7 +490,8 @@ class Match:
             if all(gp < self.WIN_POINTS for gp in self.game_points.values()):
                 # Create next round early so we can show the dealt hand
                 self._next_round = Round(self.players, first_seat=self.first_seat,
-                                         force_marriage_seat=self._force_marriage_seat)
+                                         force_marriage_seat=self._force_marriage_seat,
+                                         force_nine_trump_seat=self._force_nine_trump_seat)
                 for seat in (0, 1):
                     self.players[seat].notify_next_round(
                         list(self._next_round.state.hands[seat]))
