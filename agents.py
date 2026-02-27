@@ -131,12 +131,69 @@ class GreedyPlayer(Player):
                 return swaps[0]
             return Action(ActionType.PASS)
 
-        # Highest-value play
         plays = [a for a in va if a.type.value == "play_card"]
-        if plays:
-            return max(plays, key=lambda a: view.hand[a.card_index].value())
+        if not plays:
+            return random.choice(va)
 
-        return random.choice(va)
+        # When leading, prefer marriage cards (K or Q from a pair)
+        if view.is_leading:
+            from rules import find_marriages
+            marriages = find_marriages(view.hand)
+            if marriages:
+                # Exception: if game is closed and we hold A of trump,
+                # play the ace first
+                has_trump_ace = any(
+                    c.rank == " A" and c.suit == view.trump_suit
+                    for c in view.hand
+                )
+                if view.closed and has_trump_ace:
+                    ace_plays = [
+                        a for a in plays
+                        if view.hand[a.card_index].rank == " A"
+                        and view.hand[a.card_index].suit == view.trump_suit
+                    ]
+                    if ace_plays:
+                        return ace_plays[0]
+
+                # Play a marriage card (prefer trump marriage)
+                trump_mar = [s for s in marriages if s == view.trump_suit]
+                mar_suits = trump_mar or marriages
+                for suit in mar_suits:
+                    mar_plays = [
+                        a for a in plays
+                        if view.hand[a.card_index].suit == suit
+                        and view.hand[a.card_index].rank in (" K", " Q")
+                    ]
+                    if mar_plays:
+                        return mar_plays[0]
+
+        # When following, try to win the trick
+        if view.lead_card is not None:
+            from rules import trick_winner
+            lead = view.lead_card
+            lead_is_high = lead.rank in ("10", " A")
+
+            winners = []
+            for a in plays:
+                c = view.hand[a.card_index]
+                if trick_winner(lead, c, lead.suit, view.trump_suit) == 1:
+                    is_trump = (c.suit == view.trump_suit
+                                and lead.suit != view.trump_suit)
+                    # Don't spend a trump unless the lead card is a 10 or A
+                    if is_trump and not lead_is_high:
+                        continue
+                    winners.append(a)
+
+            if winners:
+                # Play highest-value winner
+                return max(winners,
+                           key=lambda a: view.hand[a.card_index].value())
+
+            # Can't win profitably → play lowest
+            return min(plays, key=lambda a: view.hand[a.card_index].value())
+
+        # Leading (no marriage to play) → play lowest
+        return min(plays, key=lambda a: view.hand[a.card_index].value())
 
 
 class SmartPlayer(Player):
