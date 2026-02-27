@@ -10,6 +10,7 @@ Usage:
     python card_game.py --marriage-bot   # force bot's hand to include a marriage
     python card_game.py --nine-trump     # force human's hand to include 9 of trump
     python card_game.py --nine-trump-bot # force bot's hand to include 9 of trump
+    python card_game.py --hints          # show opponent hand inference hints
 """
 
 import sys
@@ -33,6 +34,7 @@ def main():
     bot_name = args[0].lower() if args else "random"
     reveal = "--reveal" in flags
     show_player_view = "--PlayerView" in flags
+    show_hints = "--hints" in flags
     force_marriage = "--marriage" in flags
     force_marriage_bot = "--marriage-bot" in flags
     force_nine_trump = "--nine-trump" in flags
@@ -49,7 +51,8 @@ def main():
         print(f"Available: {', '.join(BOT_TYPES)}")
         sys.exit(1)
 
-    ui = TerminalUI(reveal_opponent=reveal, show_player_view=show_player_view)
+    ui = TerminalUI(reveal_opponent=reveal, show_player_view=show_player_view,
+                     show_hints=show_hints)
     human = HumanPlayer(ui, name="You")
     bot = BOT_TYPES[bot_name]()
 

@@ -56,11 +56,13 @@ class TerminalUI:
     """
 
     def __init__(self, reveal_opponent: bool = False,
-                 show_player_view: bool = False):
+                 show_player_view: bool = False,
+                 show_hints: bool = False):
         self.seat: int = 0
         self._opponent_name = "Opponent"
         self.reveal_opponent = reveal_opponent
         self.show_player_view = show_player_view
+        self.show_hints = show_hints
 
     def set_context(self, seat: int, opponent_name: str):
         self.seat = seat
@@ -144,6 +146,15 @@ class TerminalUI:
             print(f"{opp}: {display_hand(view.opponent_hand, show_numbers=False)}")
         else:
             print(f"{opp}: {display_hidden(view.opponent_hand_size)}")
+
+        # Opponent hand inference hints
+        if self.show_hints:
+            if view.opponent_known_cards:
+                known = sorted(view.opponent_known_cards, key=lambda c: c.key())
+                print(f"  Known in hand: {', '.join(card_str(c) for c in known)}")
+            if view.opponent_void_suits:
+                void = sorted(view.opponent_void_suits, key=lambda s: s.value)
+                print(f"  Void in: {', '.join(colored_suit(s) for s in void)}")
         print()
 
         # Table area

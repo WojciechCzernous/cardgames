@@ -35,6 +35,7 @@ python card_game.py smart --marriage        # force human's hand to include a ma
 python card_game.py smart --marriage-bot    # force bot's hand to include a marriage
 python card_game.py smart --nine-trump      # force human's hand to include 9 of trump
 python card_game.py smart --nine-trump-bot  # force bot's hand to include 9 of trump
+python card_game.py smart --hints           # show opponent hand inference hints
 python train.py                  # run headless training
 ```
 
