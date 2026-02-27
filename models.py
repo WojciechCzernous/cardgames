@@ -86,8 +86,6 @@ class PlayerView:
     lead_marriage: Suit | None         # marriage suit announced with lead card
     valid_actions: list[Action]
     is_winner_action_phase: bool
-    seen_cards: set[tuple[str, str]]   # cards this player has observed
-    played_cards: set[Card] = field(default_factory=set)  # cards played in completed tricks
     my_won_cards: list[Card] = field(default_factory=list)        # cards I captured in tricks
     opponent_won_cards: list[Card] = field(default_factory=list)  # cards opponent captured
 

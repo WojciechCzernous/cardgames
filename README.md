@@ -20,7 +20,6 @@
 - **Symmetric players** — both seats are `Player` agents (seat 0, seat 1). No "player"/"computer" asymmetry.
 - **Independent state** — `RoundState` holds all authoritative game state; `PlayerView` is the per-seat observable projection.
 - **Rules oracle** — `rules.py` contains pure functions that answer "what's legal?" given state, completely separated from the engine.
-- **Seen cards per seat** — both players track their own `seen_cards` (set of observed cards throughout the round).
 - **Any matchup** — plug any `Player` subclass (including an RL agent) into either seat.
 
 ## Usage
@@ -41,7 +40,7 @@ python train.py                  # run headless training
 
 ## Endgame Solver
 
-`SmartPlayer` plays greedy heuristics in phase 1, then switches to **exact minimax** in phase 2 once the draw pile empties and full information is available. The opponent's hand is derived by elimination: `all_24_cards − my_hand − played_cards`.
+`SmartPlayer` plays greedy heuristics in phase 1, then switches to **exact minimax** in phase 2 once the draw pile empties and full information is available. The opponent's hand is derived by elimination: `all_24_cards − my_hand − won_cards`.
 
 `EndgameSolver` (in `solver.py`) uses memoised minimax over the phase 2 game tree. With ≤6 cards per side the search space is small and solves instantly. The solver handles:
 - Must-follow-suit constraints (phase 2 rules)

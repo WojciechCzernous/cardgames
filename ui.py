@@ -197,8 +197,6 @@ class TerminalUI:
         print(f"  lead_marriage      = {view.lead_marriage}")
         print(f"  valid_actions      = {view.valid_actions}")
         print(f"  is_winner_action_phase = {view.is_winner_action_phase}")
-        print(f"  seen_cards         = {sorted(view.seen_cards)}")
-        print(f"  played_cards       = {sorted(str(c) for c in view.played_cards)}")
         print(f"  my_won_cards       = {[str(c) for c in view.my_won_cards]}")
         print(f"  opponent_won_cards = {[str(c) for c in view.opponent_won_cards]}")
         print(f"  opponent_known_cards = {sorted(str(c) for c in view.opponent_known_cards)}")

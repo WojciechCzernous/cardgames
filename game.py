@@ -95,16 +95,6 @@ class RoundState:
 
         self.round_winner: int | None = None
 
-        # Per-player memory of observed cards
-        self.seen_cards: dict[int, set[tuple[str, str]]] = {0: set(), 1: set()}
-        for seat in (0, 1):
-            for card in self.hands[seat]:
-                self.seen_cards[seat].add(card.key())
-            self.seen_cards[seat].add(self.trump_card.key())
-
-        # Cards that have been played in tricks (public knowledge)
-        self.played_cards: list[Card] = []
-
         # Cards won (captured) by each player in tricks
         self.won_cards: dict[int, list[Card]] = {0: [], 1: []}
 
@@ -124,11 +114,6 @@ class RoundState:
         if not self.draw_pile and self.trump_card is None:
             return 2
         return 1
-
-    # ------------------------------------------------------------------
-    def player_sees_card(self, seat: int, card: Card):
-        """Record that *seat* has observed *card*."""
-        self.seen_cards[seat].add(card.key())
 
     # ------------------------------------------------------------------
     def player_view(self, seat: int, lead_card: Card | None = None,
@@ -160,8 +145,6 @@ class RoundState:
             lead_marriage=None,
             valid_actions=valid_actions,
             is_winner_action_phase=is_winner_action,
-            seen_cards=set(self.seen_cards[seat]),
-            played_cards=set(self.played_cards),
             my_won_cards=list(self.won_cards[seat]),
             opponent_won_cards=list(self.won_cards[opp]),
             opponent_known_cards=set(self.opponent_known_cards[seat]),
@@ -217,9 +200,6 @@ class Round:
                 hand.remove(nine)
                 hand.append(old_trump)
                 st.trump_card = nine
-                # Both players see the new face-up trump
-                st.player_sees_card(0, nine)
-                st.player_sees_card(1, nine)
                 # Opponent infers: swapper now holds the old trump card
                 st.opponent_known_cards[opp].add(old_trump)
             return None, 0, None
@@ -237,8 +217,6 @@ class Round:
             hand.remove(card)
             st.last_drawn[seat] = None    # clear "just drawn" marker
 
-            # Opponent sees the played card
-            st.player_sees_card(opp, card)
             # Remove from opponent's known-cards (card is now on the table)
             st.opponent_known_cards[opp].discard(card)
 
@@ -259,8 +237,6 @@ class Round:
                 mar_suit = None
 
             if mar_suit:
-                st.player_sees_card(opp, Card(" K", mar_suit))
-                st.player_sees_card(opp, Card(" Q", mar_suit))
                 marriage_points = rules.marriage_value(mar_suit, st.trump_suit)
                 # Opponent infers: partner card is still in hand
                 partner_rank = " Q" if card.rank == " K" else " K"
@@ -287,20 +263,16 @@ class Round:
             drawn = st.draw_pile.pop()
             st.hands[leader].append(drawn)
             st.last_drawn[leader] = drawn
-            st.player_sees_card(leader, drawn)
 
             if st.draw_pile:
                 drawn2 = st.draw_pile.pop()
                 st.hands[follower].append(drawn2)
-                st.player_sees_card(follower, drawn2)
             elif st.trump_card:
                 st.hands[follower].append(st.trump_card)
-                st.player_sees_card(follower, st.trump_card)
                 st.trump_card = None
         elif st.trump_card:
             st.hands[leader].append(st.trump_card)
             st.last_drawn[leader] = st.trump_card
-            st.player_sees_card(leader, st.trump_card)
             st.trump_card = None
 
     # ------------------------------------------------------------------
@@ -352,8 +324,6 @@ class Round:
 
         st.scores[winner] += trick_points
         st.leader = winner
-        st.played_cards.append(card_l)
-        st.played_cards.append(card_f)
         st.won_cards[winner].append(card_l)
         st.won_cards[winner].append(card_f)
 

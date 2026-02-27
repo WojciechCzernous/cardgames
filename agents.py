@@ -222,8 +222,9 @@ class SmartPlayer(Player):
         # Derive opponent's hand by elimination
         all_cards = {Card(r, s) for s in Suit for r in RANKS}
         my_hand_set = set(view.hand)
+        won_cards = set(view.my_won_cards) | set(view.opponent_won_cards)
         opponent_hand = sorted(
-            all_cards - my_hand_set - view.played_cards,
+            all_cards - my_hand_set - won_cards,
             key=lambda c: c.key(),
         )
 
