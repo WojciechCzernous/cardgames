@@ -91,6 +91,10 @@ class PlayerView:
     my_won_cards: list[Card] = field(default_factory=list)        # cards I captured in tricks
     opponent_won_cards: list[Card] = field(default_factory=list)  # cards opponent captured
 
+    # Opponent hand inference
+    opponent_known_cards: set[Card] = field(default_factory=set)  # cards known to be in opponent's hand
+    opponent_void_suits: set[Suit] = field(default_factory=set)   # suits opponent is known to lack
+
     # Additional context for display (not used by agents)
     opponent_hand_size: int = 0
     opponent_hand: list[Card] | None = None   # set when hand is revealed

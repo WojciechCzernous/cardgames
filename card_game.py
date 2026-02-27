@@ -7,7 +7,9 @@ Usage:
     python card_game.py --reveal     # show bot hand when draw pile is empty
     python card_game.py --PlayerView # show raw PlayerView fields
     python card_game.py --marriage   # force human's hand to include a marriage
-    python card_game.py --nine-trump # force human's hand to include 9 of trump
+    python card_game.py --marriage-bot   # force bot's hand to include a marriage
+    python card_game.py --nine-trump     # force human's hand to include 9 of trump
+    python card_game.py --nine-trump-bot # force bot's hand to include 9 of trump
 """
 
 import sys
@@ -32,7 +34,15 @@ def main():
     reveal = "--reveal" in flags
     show_player_view = "--PlayerView" in flags
     force_marriage = "--marriage" in flags
+    force_marriage_bot = "--marriage-bot" in flags
     force_nine_trump = "--nine-trump" in flags
+    force_nine_trump_bot = "--nine-trump-bot" in flags
+
+    # 9-of-trump is unique — can't be forced into both hands
+    if force_nine_trump and force_nine_trump_bot:
+        print("Error: --nine-trump and --nine-trump-bot are mutually exclusive")
+        print("       (there is only one 9 of trump in the deck)")
+        sys.exit(1)
 
     if bot_name not in BOT_TYPES:
         print(f"Unknown bot: {bot_name}")
@@ -50,10 +60,25 @@ def main():
     print(f"Playing against: {bot_name} bot")
     print()
 
+    # Build force-deal parameters
+    marriage_seats: set[int] | None = None
+    if force_marriage or force_marriage_bot:
+        marriage_seats = set()
+        if force_marriage:
+            marriage_seats.add(0)
+        if force_marriage_bot:
+            marriage_seats.add(1)
+
+    nine_trump_seat: int | None = None
+    if force_nine_trump:
+        nine_trump_seat = 0
+    elif force_nine_trump_bot:
+        nine_trump_seat = 1
+
     while True:
         match = Match(players,
-                      force_marriage_seat=0 if force_marriage else None,
-                      force_nine_trump_seat=0 if force_nine_trump else None)
+                      force_marriage_seats=marriage_seats,
+                      force_nine_trump_seat=nine_trump_seat)
         match.play()
         if not ui.prompt_play_again():
             break
