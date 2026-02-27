@@ -5,6 +5,7 @@ Usage:
     python card_game.py              # play vs random bot
     python card_game.py greedy       # play vs greedy bot
     python card_game.py --reveal     # show bot hand when draw pile is empty
+    python card_game.py --PlayerView # show raw PlayerView fields
 """
 
 import sys
@@ -27,13 +28,14 @@ def main():
 
     bot_name = args[0].lower() if args else "random"
     reveal = "--reveal" in flags
+    show_player_view = "--PlayerView" in flags
 
     if bot_name not in BOT_TYPES:
         print(f"Unknown bot: {bot_name}")
         print(f"Available: {', '.join(BOT_TYPES)}")
         sys.exit(1)
 
-    ui = TerminalUI(reveal_opponent=reveal)
+    ui = TerminalUI(reveal_opponent=reveal, show_player_view=show_player_view)
     human = HumanPlayer(ui, name="You")
     bot = BOT_TYPES[bot_name]()
 

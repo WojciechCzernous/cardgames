@@ -30,6 +30,7 @@ python card_game.py              # play vs random bot
 python card_game.py greedy       # play vs greedy bot
 python card_game.py smart        # play vs smart bot (minimax endgame)
 python card_game.py smart --reveal  # smart bot + show opponent hand in phase 2
+python card_game.py smart --PlayerView  # show raw PlayerView fields each turn
 python train.py                  # run headless training
 ```
 

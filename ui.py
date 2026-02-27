@@ -55,10 +55,12 @@ class TerminalUI:
     The human's seat number is set when we know it (usually 0).
     """
 
-    def __init__(self, reveal_opponent: bool = False):
+    def __init__(self, reveal_opponent: bool = False,
+                 show_player_view: bool = False):
         self.seat: int = 0
         self._opponent_name = "Opponent"
         self.reveal_opponent = reveal_opponent
+        self.show_player_view = show_player_view
 
     def set_context(self, seat: int, opponent_name: str):
         self.seat = seat
@@ -162,6 +164,36 @@ class TerminalUI:
         drawn = f"  (drew: {card_str(view.last_drawn)})" if view.last_drawn else ""
         print(f"Your hand:{drawn}")
         print(display_hand(view.hand))
+        print()
+
+        # --- PlayerView dump (all fields by code name) ---
+        if not self.show_player_view:
+            return
+        print("─" * 50)
+        print("PlayerView fields:")
+        print(f"  seat               = {view.seat}")
+        print(f"  hand               = {[str(c) for c in view.hand]}")
+        print(f"  trump_suit         = {view.trump_suit}")
+        print(f"  trump_card         = {view.trump_card}")
+        print(f"  draw_pile_size     = {view.draw_pile_size}")
+        print(f"  phase              = {view.phase}")
+        print(f"  closed             = {view.closed}")
+        print(f"  closed_by          = {view.closed_by}")
+        print(f"  my_score           = {view.my_score}")
+        print(f"  opponent_score     = {view.opponent_score}")
+        print(f"  is_leading         = {view.is_leading}")
+        print(f"  lead_card          = {view.lead_card}")
+        print(f"  lead_marriage      = {view.lead_marriage}")
+        print(f"  valid_actions      = {view.valid_actions}")
+        print(f"  is_winner_action_phase = {view.is_winner_action_phase}")
+        print(f"  seen_cards         = {sorted(view.seen_cards)}")
+        print(f"  played_cards       = {sorted(str(c) for c in view.played_cards)}")
+        print(f"  opponent_hand_size = {view.opponent_hand_size}")
+        print(f"  opponent_hand      = {view.opponent_hand}")
+        print(f"  last_trick_info    = {view.last_trick_info!r}")
+        print(f"  last_drawn         = {view.last_drawn}")
+        print(f"  match_scores       = {view.match_scores}")
+        print("─" * 50)
         print()
 
     # ------------------------------------------------------------------
