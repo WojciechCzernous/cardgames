@@ -1,1 +1,5 @@
 __pycache__/*
+tmp.py
+*.txt
+*.log
+data/*.npz
