@@ -188,6 +188,8 @@ class TerminalUI:
         print(f"  is_winner_action_phase = {view.is_winner_action_phase}")
         print(f"  seen_cards         = {sorted(view.seen_cards)}")
         print(f"  played_cards       = {sorted(str(c) for c in view.played_cards)}")
+        print(f"  my_won_cards       = {[str(c) for c in view.my_won_cards]}")
+        print(f"  opponent_won_cards = {[str(c) for c in view.opponent_won_cards]}")
         print(f"  opponent_hand_size = {view.opponent_hand_size}")
         print(f"  opponent_hand      = {view.opponent_hand}")
         print(f"  last_trick_info    = {view.last_trick_info!r}")

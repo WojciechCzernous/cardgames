@@ -70,6 +70,9 @@ class RoundState:
         # Cards that have been played in tricks (public knowledge)
         self.played_cards: list[Card] = []
 
+        # Cards won (captured) by each player in tricks
+        self.won_cards: dict[int, list[Card]] = {0: [], 1: []}
+
         # Display helpers (not game logic)
         self.last_drawn: dict[int, Card | None] = {0: None, 1: None}
         self.last_trick_info: str = ""
@@ -120,6 +123,8 @@ class RoundState:
             is_winner_action_phase=is_winner_action,
             seen_cards=set(self.seen_cards[seat]),
             played_cards=set(self.played_cards),
+            my_won_cards=list(self.won_cards[seat]),
+            opponent_won_cards=list(self.won_cards[opp]),
             opponent_hand_size=len(self.hands[opp]),
             opponent_hand=list(self.hands[opp]),
             last_trick_info=self.last_trick_info,
@@ -271,6 +276,8 @@ class Round:
         st.leader = winner
         st.played_cards.append(card_l)
         st.played_cards.append(card_f)
+        st.won_cards[winner].append(card_l)
+        st.won_cards[winner].append(card_f)
 
         # Check for 66
         for s in (0, 1):
