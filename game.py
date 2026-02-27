@@ -150,7 +150,6 @@ class RoundState:
             opponent_known_cards=set(self.opponent_known_cards[seat]),
             opponent_void_suits=set(self.opponent_void_suits[seat]),
             opponent_hand_size=len(self.hands[opp]),
-            opponent_hand=list(self.hands[opp]),
             last_trick_info=self.last_trick_info,
             last_drawn=self.last_drawn[seat],
             match_scores=match_scores or {},
@@ -290,6 +289,7 @@ class Round:
         self._current_lead_card = None          # signal: this is the lead
         view_l = st.player_view(leader, lead_card=None,
                                 match_scores=self.match_scores)
+        self.players[leader].set_opponent_hand(list(st.hands[follower]))
         action_l = self.players[leader].choose_action(view_l)
         card_l, mar_l, mar_suit_l = self.execute_action(leader, action_l)
         if mar_l:
@@ -301,6 +301,7 @@ class Round:
         view_f = st.player_view(follower, lead_card=card_l,
                                 match_scores=self.match_scores)
         view_f.lead_marriage = mar_suit_l
+        self.players[follower].set_opponent_hand(list(st.hands[leader]))
         action_f = self.players[follower].choose_action(view_f)
         card_f, mar_f, _mar_suit_f = self.execute_action(follower, action_f)
         if mar_f:
@@ -370,6 +371,7 @@ class Round:
         while True:
             view = st.player_view(seat, is_winner_action=True,
                                   match_scores=self.match_scores)
+            player.set_opponent_hand(list(st.hands[1 - seat]))
             action = player.choose_action(view)
             at = action.type.value
 

@@ -95,6 +95,10 @@ class Player(ABC):
                           first_round: bool = False) -> None:
         pass
 
+    def set_opponent_hand(self, hand: list[Card]) -> None:
+        """Called before choose_action with the opponent's current hand (for display only)."""
+        pass
+
 
 # ---------------------------------------------------------------------------
 # AI agents
@@ -254,6 +258,9 @@ class HumanPlayer(Player):
     def __init__(self, ui: "TerminalUI", name: str = "You"):
         super().__init__(name)
         self.ui = ui
+
+    def set_opponent_hand(self, hand: list[Card]) -> None:
+        self.ui.set_opponent_hand(hand)
 
     def choose_action(self, view: PlayerView) -> Action:
         if view.is_winner_action_phase:

@@ -63,10 +63,15 @@ class TerminalUI:
         self.reveal_opponent = reveal_opponent
         self.show_player_view = show_player_view
         self.show_hints = show_hints
+        self._opponent_hand: list[Card] | None = None
 
     def set_context(self, seat: int, opponent_name: str):
         self.seat = seat
         self._opponent_name = opponent_name
+
+    def set_opponent_hand(self, hand: list[Card]) -> None:
+        """Called by HumanPlayer before each action to cache the opponent's hand."""
+        self._opponent_hand = hand
 
     # ------------------------------------------------------------------
     # Screen helpers
@@ -142,8 +147,8 @@ class TerminalUI:
         print()
 
         # Opponent hand
-        if self.reveal_opponent and view.draw_pile_size == 0 and view.opponent_hand:
-            print(f"{opp}: {display_hand(view.opponent_hand, show_numbers=False)}")
+        if self.reveal_opponent and view.draw_pile_size == 0 and self._opponent_hand:
+            print(f"{opp}: {display_hand(self._opponent_hand, show_numbers=False)}")
         else:
             print(f"{opp}: {display_hidden(view.opponent_hand_size)}")
 
@@ -202,7 +207,6 @@ class TerminalUI:
         print(f"  opponent_known_cards = {sorted(str(c) for c in view.opponent_known_cards)}")
         print(f"  opponent_void_suits  = {sorted(s.name for s in view.opponent_void_suits)}")
         print(f"  opponent_hand_size = {view.opponent_hand_size}")
-        print(f"  opponent_hand      = {view.opponent_hand}")
         print(f"  last_trick_info    = {view.last_trick_info!r}")
         print(f"  last_drawn         = {view.last_drawn}")
         print(f"  match_scores       = {view.match_scores}")
@@ -329,8 +333,8 @@ class TerminalUI:
         print()
 
         # Opponent hand
-        if self.reveal_opponent and view.draw_pile_size == 0 and view.opponent_hand:
-            print(f"{opp}: {display_hand(view.opponent_hand, show_numbers=False)}")
+        if self.reveal_opponent and view.draw_pile_size == 0 and self._opponent_hand:
+            print(f"{opp}: {display_hand(self._opponent_hand, show_numbers=False)}")
         else:
             print(f"{opp}: {display_hidden(view.opponent_hand_size)}")
         print()
