@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from models import (
     Card, Suit, Action, ActionType, PlayerView,
-    TrickResult, RoundResult, MatchResult, RANKS,
+    TrickResult, RoundResult, MatchResult, RANKS, RANK_VALUES,
 )
 import rules
 
@@ -116,6 +116,17 @@ class RoundState:
         return 1
 
     # ------------------------------------------------------------------
+    def _compute_unknown_cards(self, seat: int) -> list[Card]:
+        """Cards not in my hand, not in any won pile — i.e. opponent hand + draw pile.
+        The visible trump card is also subtracted (it's public info)."""
+        all_cards = {Card(rank, suit) for suit in Suit for rank in RANKS}
+        known = set(self.hands[seat]) | set(self.won_cards[0]) | set(self.won_cards[1])
+        if self.trump_card is not None:
+            known.add(self.trump_card)
+        unknown = sorted(all_cards - known, key=lambda c: (c.suit.value, RANK_VALUES[c.rank]))
+        return unknown
+
+    # ------------------------------------------------------------------
     def player_view(self, seat: int, lead_card: Card | None = None,
                     is_winner_action: bool = False,
                     match_scores: dict[int, int] | None = None) -> PlayerView:
@@ -149,6 +160,7 @@ class RoundState:
             opponent_won_cards=list(self.won_cards[opp]),
             opponent_known_cards=set(self.opponent_known_cards[seat]),
             opponent_void_suits=set(self.opponent_void_suits[seat]),
+            unknown_cards=self._compute_unknown_cards(seat),
             opponent_hand_size=len(self.hands[opp]),
             last_trick_info=self.last_trick_info,
             last_drawn=self.last_drawn[seat],

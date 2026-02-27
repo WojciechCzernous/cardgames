@@ -28,13 +28,12 @@
 python card_game.py              # play vs random bot
 python card_game.py greedy       # play vs greedy bot
 python card_game.py smart        # play vs smart bot (minimax endgame)
-python card_game.py smart --reveal  # smart bot + show opponent hand in phase 2
 python card_game.py smart --PlayerView  # show raw PlayerView fields each turn
 python card_game.py smart --marriage        # force human's hand to include a marriage
 python card_game.py smart --marriage-bot    # force bot's hand to include a marriage
 python card_game.py smart --nine-trump      # force human's hand to include 9 of trump
 python card_game.py smart --nine-trump-bot  # force bot's hand to include 9 of trump
-python card_game.py smart --hints           # show opponent hand inference hints
+python card_game.py smart --hints           # show inference hints + opponent hand when derivable
 python train.py                  # run headless training
 ```
 

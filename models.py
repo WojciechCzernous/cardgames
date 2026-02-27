@@ -92,6 +92,7 @@ class PlayerView:
     # Opponent hand inference
     opponent_known_cards: set[Card] = field(default_factory=set)  # cards known to be in opponent's hand
     opponent_void_suits: set[Suit] = field(default_factory=set)   # suits opponent is known to lack
+    unknown_cards: list[Card] = field(default_factory=list)       # opponent hand + draw pile (minus visible trump)
 
     # Additional context for display (not used by agents)
     opponent_hand_size: int = 0

@@ -55,12 +55,10 @@ class TerminalUI:
     The human's seat number is set when we know it (usually 0).
     """
 
-    def __init__(self, reveal_opponent: bool = False,
-                 show_player_view: bool = False,
+    def __init__(self, show_player_view: bool = False,
                  show_hints: bool = False):
         self.seat: int = 0
         self._opponent_name = "Opponent"
-        self.reveal_opponent = reveal_opponent
         self.show_player_view = show_player_view
         self.show_hints = show_hints
         self._opponent_hand: list[Card] | None = None
@@ -147,13 +145,16 @@ class TerminalUI:
         print()
 
         # Opponent hand
-        if self.reveal_opponent and view.draw_pile_size == 0 and self._opponent_hand:
+        if self.show_hints and view.draw_pile_size == 0 and self._opponent_hand:
             print(f"{opp}: {display_hand(self._opponent_hand, show_numbers=False)}")
         else:
             print(f"{opp}: {display_hidden(view.opponent_hand_size)}")
 
-        # Opponent hand inference hints
+        # Hints
         if self.show_hints:
+            if view.draw_pile_size > 0 and view.unknown_cards:
+                unk = ', '.join(card_str(c) for c in view.unknown_cards)
+                print(f"  Opponent + pile = {unk}")
             if view.opponent_known_cards:
                 known = sorted(view.opponent_known_cards, key=lambda c: c.key())
                 print(f"  Known in hand: {', '.join(card_str(c) for c in known)}")
@@ -206,6 +207,7 @@ class TerminalUI:
         print(f"  opponent_won_cards = {[str(c) for c in view.opponent_won_cards]}")
         print(f"  opponent_known_cards = {sorted(str(c) for c in view.opponent_known_cards)}")
         print(f"  opponent_void_suits  = {sorted(s.name for s in view.opponent_void_suits)}")
+        print(f"  unknown_cards      = {[str(c) for c in view.unknown_cards]}")
         print(f"  opponent_hand_size = {view.opponent_hand_size}")
         print(f"  last_trick_info    = {view.last_trick_info!r}")
         print(f"  last_drawn         = {view.last_drawn}")
@@ -333,7 +335,7 @@ class TerminalUI:
         print()
 
         # Opponent hand
-        if self.reveal_opponent and view.draw_pile_size == 0 and self._opponent_hand:
+        if self.show_hints and view.draw_pile_size == 0 and self._opponent_hand:
             print(f"{opp}: {display_hand(self._opponent_hand, show_numbers=False)}")
         else:
             print(f"{opp}: {display_hidden(view.opponent_hand_size)}")
