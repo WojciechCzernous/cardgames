@@ -429,6 +429,10 @@ class Match:
         self.first_seat: int = random.choice([0, 1])
         self._force_marriage_seat = force_marriage_seat
 
+        # If forcing a marriage, that seat leads first so they can use it
+        if force_marriage_seat is not None:
+            self.first_seat = force_marriage_seat
+
         self._next_round: Round | None = None
 
     def play(self) -> MatchResult:
