@@ -56,6 +56,61 @@ python test_solver.py --tree -n 4  # tree for a specific case only
 
 The tree shows each decision node with the deciding seat (`[sN]`), MAX/MIN role, current hand & scores, and the minimax value. Terminal nodes display final scores, winner, and game points. Marriage announcements are marked with 💍.
 
+## Feature Encoding
+
+`features.py` converts a `PlayerView` into a **248-dimensional** float32 tensor for neural-network input, and maps actions to a **27-dimensional** discrete action space.
+
+### State vector (248 floats)
+
+| Feature | Encoding | Dims |
+|---|---|---|
+| `hand` | 24-bit card vector (1 = in hand) | 24 |
+| `trump_suit` | 4-bit one-hot | 4 |
+| `trump_card` | 24-bit one-hot (all zeros if face-down trump taken) | 24 |
+| `draw_pile_size` | scalar (raw count) | 1 |
+| `phase` | 1 = phase 2, 0 = phase 1 | 1 |
+| `closed_by` | 2 bits: [me, opponent] | 2 |
+| `my_score` | scalar ÷ 66 | 1 |
+| `opponent_score` | scalar ÷ 66 | 1 |
+| `is_leading` | 1 bit | 1 |
+| `lead_card` | 24-bit one-hot (zeros when leading) | 24 |
+| `lead_marriage` | 4-bit one-hot suit (zeros if no marriage) | 4 |
+| `valid_actions` | 24-bit play mask + swap + close + pass | 27 |
+| `is_winner_action_phase` | 1 bit | 1 |
+| `my_won_cards` | 24-bit card vector | 24 |
+| `opponent_won_cards` | 24-bit card vector | 24 |
+| `my_marriages` | 4-bit suit vector | 4 |
+| `opponent_marriages` | 4-bit suit vector | 4 |
+| `opponent_known_cards` | 24-bit card vector (cards seen played/inferred) | 24 |
+| `opponent_void_suits` | 4-bit suit vector | 4 |
+| `unknown_cards` | 24-bit card vector (could be in opponent hand or pile) | 24 |
+| `card_threats` | 24 floats (count of unseen cards that beat each card) | 24 |
+| `opponent_hand_size` | scalar | 1 |
+| | **Total** | **248** |
+
+Card indexing is **suit-major, rank-minor**: card index = `suit_idx × 6 + rank_idx`, where suits follow enum order (♥ ♣ ♦ ♠) and ranks are ordered 9, J, Q, K, 10, A.
+
+### Action space (27 discrete actions)
+
+| Index | Action |
+|---|---|
+| 0–23 | Play card (same suit-major rank-minor indexing) |
+| 24 | Swap trump 9 |
+| 25 | Close the game |
+| 26 | Pass (end winner-action phase) |
+
+### Dataset generation
+
+```bash
+python generate_data.py                    # 2M greedy self-play samples (default)
+python generate_data.py --n 500000         # custom count
+python generate_data.py --bot smart        # smart self-play
+python generate_data.py --out data.npz     # custom output path
+python generate_data.py --seed 42          # reproducible
+```
+
+Each round produces one randomly-sampled `(state, action)` pair. Output is a compressed `.npz` file with `states` (N×248 float32) and `actions` (N, int64).
+
 ## Rules of Sixty-Six (Sześćdziesiąt sześć)
 
 Rules as described by Lech Pijanowski in *Przewodnik gier*, ed. Iskry, 1973, Warszawa.
