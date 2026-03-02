@@ -127,6 +127,28 @@ class RoundState:
         return unknown
 
     # ------------------------------------------------------------------
+    def _compute_card_threats(self, seat: int,
+                              unknown: list[Card]) -> dict[Card, int]:
+        """For each card in *seat*'s hand, count unseen cards that beat it.
+
+        A card is beaten by:
+        - same-suit cards with higher rank value, or
+        - any trump card (if the card itself is not trump).
+        """
+        unknown_set = set(unknown)
+        result: dict[Card, int] = {}
+        for card in self.hands[seat]:
+            count = 0
+            for u in unknown_set:
+                if u.suit == card.suit:
+                    if RANK_VALUES[u.rank] > RANK_VALUES[card.rank]:
+                        count += 1
+                elif u.suit == self.trump_suit and card.suit != self.trump_suit:
+                    count += 1
+            result[card] = count
+        return result
+
+    # ------------------------------------------------------------------
     def player_view(self, seat: int, lead_card: Card | None = None,
                     is_winner_action: bool = False,
                     match_scores: dict[int, int] | None = None) -> PlayerView:
@@ -140,6 +162,7 @@ class RoundState:
             hand, self.trump_suit, self.trump_card,
             lead_card, self.phase, is_winner_action,
         )
+        unknown = self._compute_unknown_cards(seat)
         return PlayerView(
             seat=seat,
             hand=list(hand),              # copy so agent can't mutate
@@ -160,7 +183,8 @@ class RoundState:
             opponent_won_cards=list(self.won_cards[opp]),
             opponent_known_cards=set(self.opponent_known_cards[seat]),
             opponent_void_suits=set(self.opponent_void_suits[seat]),
-            unknown_cards=self._compute_unknown_cards(seat),
+            unknown_cards=unknown,
+            card_threats=self._compute_card_threats(seat, unknown),
             opponent_hand_size=len(self.hands[opp]),
             last_trick_info=self.last_trick_info,
             last_drawn=self.last_drawn[seat],

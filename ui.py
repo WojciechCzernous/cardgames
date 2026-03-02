@@ -181,6 +181,10 @@ class TerminalUI:
         drawn = f"  (drew: {card_str(view.last_drawn)})" if view.last_drawn else ""
         print(f"Your hand:{drawn}")
         print(display_hand(view.hand))
+        if self.show_hints and view.card_threats:
+            parts = [f"{card_str(c)}:{view.card_threats[c]}" for c in view.hand
+                     if c in view.card_threats]
+            print(f"  Threats: {', '.join(parts)}")
         print()
 
         # --- PlayerView dump (all fields by code name) ---
@@ -208,6 +212,7 @@ class TerminalUI:
         print(f"  opponent_known_cards = {sorted(str(c) for c in view.opponent_known_cards)}")
         print(f"  opponent_void_suits  = {sorted(s.name for s in view.opponent_void_suits)}")
         print(f"  unknown_cards      = {[str(c) for c in view.unknown_cards]}")
+        print(f"  card_threats       = {{{', '.join(f'{c}: {n}' for c, n in view.card_threats.items())}}}")
         print(f"  opponent_hand_size = {view.opponent_hand_size}")
         print(f"  last_trick_info    = {view.last_trick_info!r}")
         print(f"  last_drawn         = {view.last_drawn}")
