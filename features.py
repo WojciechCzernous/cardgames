@@ -29,6 +29,7 @@ def _card_idx(card: Card) -> int:
 
 FEATURE_DIM = 248
 ACTION_DIM = 27
+VALID_ACTIONS_OFFSET = 87   # position of the 27-bit valid-actions mask in the state tensor
 
 
 def _card_idx(card: Card) -> int:
