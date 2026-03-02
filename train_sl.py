@@ -143,10 +143,11 @@ def main():
                                      seed=args.seed)
     print(f"  Train: {len(train_ds):,}  Val: {len(val_ds):,}")
 
+    pin = device.type == "cuda"
     train_loader = DataLoader(train_ds, batch_size=args.batch, shuffle=True,
-                              pin_memory=True, num_workers=0)
+                              pin_memory=pin, num_workers=0)
     val_loader = DataLoader(val_ds, batch_size=args.batch * 2, shuffle=False,
-                            pin_memory=True, num_workers=0)
+                            pin_memory=pin, num_workers=0)
 
     hidden = tuple(args.hidden)
     model = PolicyNet(hidden_dims=hidden, dropout=args.dropout).to(device)
