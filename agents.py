@@ -309,6 +309,72 @@ class SmartPlayer(Player):
 
 
 # ---------------------------------------------------------------------------
+# Neural-network policy player (for RL self-play)
+# ---------------------------------------------------------------------------
+
+class PolicyPlayer(Player):
+    """
+    Plays using a neural network (PolicyNet or ActorCriticNet).
+    Optionally records (state_tensor, action_index, log_prob, value) per step
+    for PPO training.
+    """
+
+    def __init__(self, model, name: str = "Policy",
+                 greedy: bool = False, record: bool = False):
+        super().__init__(name)
+        self.model = model
+        self.greedy_mode = greedy
+        self.record = record
+        # Per-round trajectory: list of (state, action_idx, log_prob, value)
+        self.trajectory: list[tuple] = []
+
+    def reset_trajectory(self):
+        self.trajectory = []
+
+    def choose_action(self, view: PlayerView) -> Action:
+        import torch
+        from features import player_view_to_tensor, index_to_action
+
+        state = player_view_to_tensor(view).unsqueeze(0)  # (1, 248)
+
+        with torch.no_grad():
+            has_value = hasattr(self.model, 'policy_and_value')
+
+            if has_value:
+                masked_logits, value = self.model.policy_and_value(state)
+                value = value.item()
+            else:
+                masked_logits = self.model.masked_logits(state)
+                value = 0.0
+
+            probs = torch.softmax(masked_logits, dim=-1)
+            log_probs = torch.log_softmax(masked_logits, dim=-1)
+
+            if self.greedy_mode:
+                action_idx = masked_logits.argmax(dim=-1).item()
+            else:
+                # Ensure valid distribution (nan-safe)
+                probs = probs.clamp(min=0.0)
+                if probs.sum() < 1e-8:
+                    # Fallback: uniform over valid actions
+                    mask = x[..., 87:87+27]
+                    probs = mask / mask.sum()
+                action_idx = torch.multinomial(probs, 1).item()
+
+            log_prob = log_probs[0, action_idx].clamp(min=-20.0).item()
+
+        if self.record:
+            self.trajectory.append((
+                state.squeeze(0),    # (248,)
+                action_idx,
+                log_prob,
+                value,
+            ))
+
+        return index_to_action(action_idx, view)
+
+
+# ---------------------------------------------------------------------------
 # Human player (delegates to a TerminalUI for I/O)
 # ---------------------------------------------------------------------------
 
