@@ -5,6 +5,7 @@ Usage:
     python card_game.py              # play vs random bot
     python card_game.py greedy       # play vs greedy bot
     python card_game.py ppo          # play vs PPO-trained neural net
+    python card_game.py mcts         # play vs IS-MCTS + neural net (strongest)
     python card_game.py --PlayerView # show raw PlayerView fields
     python card_game.py --marriage   # force human's hand to include a marriage
     python card_game.py --marriage-bot   # force bot's hand to include a marriage
@@ -23,18 +24,30 @@ from net import ActorCriticNet
 from ui import TerminalUI
 
 
-def _make_ppo_player() -> PolicyPlayer:
-    """Load the PPO-trained actor-critic and wrap it in a greedy PolicyPlayer."""
+def _load_model():
+    """Load the PPO-trained actor-critic model (cached)."""
     import os
     path = os.path.join(os.path.dirname(__file__), "policy_ppo_final.pt")
     if not os.path.exists(path):
-        # fall back to best-checkpoint
         path = os.path.join(os.path.dirname(__file__), "policy_ppo.pt")
     ckpt = torch.load(path, map_location="cpu", weights_only=True)
     model = ActorCriticNet()
     model.load_state_dict(ckpt["model_state_dict"])
     model.eval()
-    return PolicyPlayer(model, name="PPO-Bot", greedy=True)
+    return model
+
+
+def _make_ppo_player() -> PolicyPlayer:
+    """Load the PPO-trained actor-critic and wrap it in a greedy PolicyPlayer."""
+    return PolicyPlayer(_load_model(), name="PPO-Bot", greedy=True)
+
+
+def _make_mcts_player():
+    """Load IS-MCTS player: neural-net-guided search (strongest)."""
+    from ismcts import ISMCTSPlayer
+    model = _load_model()
+    return ISMCTSPlayer(model, name="MCTS-Bot",
+                        n_determinizations=16, n_simulations=100)
 
 
 BOT_TYPES = {
@@ -42,6 +55,7 @@ BOT_TYPES = {
     "greedy": lambda: GreedyPlayer("Computer"),
     "smart":  lambda: SmartPlayer("Computer"),
     "ppo":   _make_ppo_player,
+    "mcts":  _make_mcts_player,
 }
 
 

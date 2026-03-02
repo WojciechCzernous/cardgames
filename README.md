@@ -4,17 +4,47 @@
 
 ## Architecture
 
+### Core game engine
+
 | File | Role |
 |---|---|
 | `models.py` | Pure data types: `Card`, `Suit`, `Action`, `PlayerView`, result dataclasses |
 | `rules.py` | Stateless rules oracle: `get_valid_actions()`, `trick_winner()`, `find_marriages()`, `compute_game_points()` |
 | `game.py` | `RoundState` (independent state object), `Round` and `Match` (game loop engines) |
-| `agents.py` | `Player` ABC, `RandomPlayer`, `GreedyPlayer`, `SmartPlayer`, `HumanPlayer` |
+| `agents.py` | `Player` ABC and all agent implementations (see *Agents* below) |
 | `ui.py` | `TerminalUI` — display/input only, used by `HumanPlayer` |
-| `solver.py` | `EndgameSolver` — minimax endgame solver for phase 2 (perfect information) |
-| `train.py` | Headless training (any agent vs any agent) |
-| `card_game.py` | Interactive entry point |
+| `card_game.py` | Interactive entry point (`python card_game.py <bot> [--flags]`) |
+
+### Agents (`agents.py` + `ismcts.py`)
+
+| Agent | Description |
+|---|---|
+| `RandomPlayer` | Uniform random over legal actions |
+| `GreedyPlayer` | Hand-crafted heuristic: prefers marriages, high-value wins, trump economy |
+| `SmartPlayer` | Greedy in phase 1, exact minimax in phase 2 (via `EndgameSolver`) |
+| `PolicyPlayer` | Neural-network policy (PPO-trained `ActorCriticNet`); supports greedy or stochastic play |
+| `ISMCTSPlayer` | **Strongest.** Information-Set MCTS with neural-network policy priors and value evaluation — AlphaGo-style search at inference time |
+| `HumanPlayer` | Interactive terminal player (delegates to `TerminalUI`) |
+
+### ML pipeline
+
+| File | Role |
+|---|---|
+| `features.py` | Converts `PlayerView` → 248-dim float32 tensor; maps actions ↔ 27-dim index |
+| `net.py` | `PolicyNet` (100K params) and `ActorCriticNet` (133K params, shared trunk + policy/value heads) |
+| `generate_data.py` | Self-play dataset generator (greedy/smart bots → `.npz` files) |
+| `train_sl.py` | Supervised learning: cross-entropy on SL dataset → `policy_sl.pt` |
+| `train_ppo.py` | PPO self-play RL: warm-starts from SL, frozen-opponent snapshots → `policy_ppo_final.pt` |
+| `ismcts.py` | Determinized MCTS engine: determinizer, MCTS tree search, IS-MCTS aggregation, `ISMCTSPlayer` |
+
+### Solvers & utilities
+
+| File | Role |
+|---|---|
+| `solver.py` | `EndgameSolver` — memoised minimax for phase 2 (perfect information, ≤6 cards/side) |
+| `minimax_game.py` | Generic alternating-initiative minimax framework |
 | `test_solver.py` | Solver test harness with game-tree visualization |
+| `train.py` | Headless match runner (any agent vs any agent) |
 
 **Key design choices:**
 - **Symmetric players** — both seats are `Player` agents (seat 0, seat 1). No "player"/"computer" asymmetry.
@@ -28,12 +58,14 @@
 python card_game.py              # play vs random bot
 python card_game.py greedy       # play vs greedy bot
 python card_game.py smart        # play vs smart bot (minimax endgame)
+python card_game.py ppo          # play vs PPO-trained neural net
+python card_game.py mcts         # play vs IS-MCTS (strongest, ~5s/move)
+python card_game.py mcts --hints # strongest bot + show inference hints
 python card_game.py smart --PlayerView  # show raw PlayerView fields each turn
 python card_game.py smart --marriage        # force human's hand to include a marriage
 python card_game.py smart --marriage-bot    # force bot's hand to include a marriage
 python card_game.py smart --nine-trump      # force human's hand to include 9 of trump
 python card_game.py smart --nine-trump-bot  # force bot's hand to include 9 of trump
-python card_game.py smart --hints           # show inference hints + opponent hand when derivable
 python train.py                  # run headless training
 ```
 
@@ -55,6 +87,55 @@ python test_solver.py --tree -n 4  # tree for a specific case only
 ```
 
 The tree shows each decision node with the deciding seat (`[sN]`), MAX/MIN role, current hand & scores, and the minimax value. Terminal nodes display final scores, winner, and game points. Marriage announcements are marked with 💍.
+
+## ML Pipeline (AlphaGo-inspired)
+
+The AI training follows an AlphaGo-inspired three-stage pipeline:
+
+### Stage 1 — Supervised Learning
+
+Train a policy network to imitate greedy self-play:
+
+```bash
+python generate_data.py                 # 2M greedy self-play samples → data/sl_greedy_2000000.npz
+python train_sl.py                      # cross-entropy training → policy_sl.pt (89.6% val accuracy)
+```
+
+**PolicyNet** (100K params): 248 → 256 → 128 → 27 MLP with valid-action masking.
+
+### Stage 2 — PPO Self-Play (Reinforcement Learning)
+
+Improve beyond imitation via self-play with Proximal Policy Optimisation:
+
+```bash
+python train_ppo.py --iterations 200 --games 512    # → policy_ppo_final.pt
+```
+
+**ActorCriticNet** (133K params): shared trunk (248 → 256) + policy head (256 → 128 → 27) + value head (256 → 128 → 1). Warm-started from the SL checkpoint. Opponent is a frozen snapshot refreshed every 10 iterations.
+
+### Stage 3 — Information-Set MCTS (Search at Inference Time)
+
+The key AlphaGo insight: use the trained policy + value networks to guide tree search at play time, yielding much stronger decisions than the raw network.
+
+**Determinized MCTS** handles imperfect information (can't see opponent's cards):
+
+1. **Determinize** — sample 16 plausible opponent hands consistent with observations (known cards, void suits, hand size)
+2. **Search** — run 100 MCTS simulations per world, guided by:
+   - Policy prior P(a|s) for PUCT exploration
+   - Value V(s) for leaf evaluation (no rollouts)
+3. **Aggregate** — merge visit counts across all determinizations, pick the most-visited action
+
+### Agent Strength Comparison
+
+Evaluated over 2000 matches (PPO, Greedy) and 100 matches (MCTS):
+
+| Agent | vs Random | vs Greedy | vs PPO |
+|---|---|---|---|
+| **MCTS** (16 det × 100 sim) | **92.0%** | **65.0%** | **62.0%** |
+| **PPO** (greedy policy) | 97.5% | 52.3% | — |
+| **Greedy** (heuristic) | 90.3% | — | 47.6% |
+
+MCTS is the strongest agent, with a clear edge over all others. The tradeoff is speed: ~5 seconds per move vs instant for PPO/Greedy.
 
 ## Feature Encoding
 
