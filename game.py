@@ -210,7 +210,8 @@ class Round:
 
     def __init__(self, players: dict[int, "Player"], first_seat: int | None = None,
                  force_marriage_seats: set[int] | None = None,
-                 force_nine_trump_seat: int | None = None):
+                 force_nine_trump_seat: int | None = None,
+                 record: bool = False):
         if first_seat is None:
             first_seat = random.choice([0, 1])
         self.players = players
@@ -219,6 +220,8 @@ class Round:
                                 force_nine_trump_seat=force_nine_trump_seat)
         self.match_scores: dict[int, int] = {0: 0, 1: 0}
         self._current_lead_card: Card | None = None  # used by execute_action
+        self.record = record
+        self.transitions: list[tuple[PlayerView, Action, int]] = []  # (view, action, seat)
 
     # ------------------------------------------------------------------
     # Action execution (mutates RoundState)
@@ -333,6 +336,8 @@ class Round:
                                 match_scores=self.match_scores)
         self.players[leader].set_opponent_hand(list(st.hands[follower]))
         action_l = self.players[leader].choose_action(view_l)
+        if self.record:
+            self.transitions.append((view_l, action_l, leader))
         card_l, mar_l, mar_suit_l = self.execute_action(leader, action_l)
         if mar_l:
             marriages[leader] = mar_l
@@ -346,6 +351,8 @@ class Round:
         view_f.lead_marriage = mar_suit_l
         self.players[follower].set_opponent_hand(list(st.hands[leader]))
         action_f = self.players[follower].choose_action(view_f)
+        if self.record:
+            self.transitions.append((view_f, action_f, follower))
         card_f, mar_f, _mar_suit_f = self.execute_action(follower, action_f)
         if mar_f:
             marriages[follower] = mar_f
@@ -417,6 +424,8 @@ class Round:
                                   match_scores=self.match_scores)
             player.set_opponent_hand(list(st.hands[1 - seat]))
             action = player.choose_action(view)
+            if self.record:
+                self.transitions.append((view, action, seat))
             at = action.type.value
 
             if at == "swap_trump":

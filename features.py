@@ -28,7 +28,44 @@ def _card_idx(card: Card) -> int:
 # ---------------------------------------------------------------------------
 
 FEATURE_DIM = 248
+ACTION_DIM = 27
 
+
+def _card_idx(card: Card) -> int:
+    """Card → integer in [0, 23].  Order: suit-major, rank-minor."""
+    return _SUIT_IDX[card.suit] * len(RANKS) + _RANK_IDX[card.rank]
+
+
+def action_to_index(action: Action, hand: list[Card]) -> int:
+    """Map an Action to an integer in [0, 26]."""
+    if action.type == ActionType.PLAY_CARD and action.card_index is not None:
+        return _card_idx(hand[action.card_index])
+    if action.type == ActionType.SWAP_TRUMP:
+        return 24
+    if action.type == ActionType.CLOSE_GAME:
+        return 25
+    return 26  # PASS
+
+
+def index_to_action(index: int, view: PlayerView) -> Action:
+    """Map an action index back to an Action for the given view."""
+    if index == 24:
+        return Action(ActionType.SWAP_TRUMP)
+    if index == 25:
+        return Action(ActionType.CLOSE_GAME)
+    if index == 26:
+        return Action(ActionType.PASS)
+    target_suit = _SUITS[index // len(RANKS)]
+    target_rank = RANKS[index % len(RANKS)]
+    for i, c in enumerate(view.hand):
+        if c.rank == target_rank and c.suit == target_suit:
+            return Action(ActionType.PLAY_CARD, card_index=i)
+    raise ValueError(f"Card at index {index} not in hand")
+
+
+# ---------------------------------------------------------------------------
+# State tensor
+# ---------------------------------------------------------------------------
 
 def player_view_to_tensor(view: PlayerView) -> torch.Tensor:
     """Convert a PlayerView into a flat float32 tensor of shape (248,)."""
@@ -132,3 +169,11 @@ def player_view_to_tensor(view: PlayerView) -> torch.Tensor:
 
     assert pos == FEATURE_DIM
     return buf
+
+
+def sample_transition(transitions: list[tuple[PlayerView, Action, int]]
+                      ) -> tuple[torch.Tensor, int]:
+    """Pick one random (state_tensor, action_index) from a round's transitions."""
+    import random
+    view, action, _seat = random.choice(transitions)
+    return player_view_to_tensor(view), action_to_index(action, view.hand)
