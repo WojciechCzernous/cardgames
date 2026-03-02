@@ -98,6 +98,9 @@ class RoundState:
         # Cards won (captured) by each player in tricks
         self.won_cards: dict[int, list[Card]] = {0: [], 1: []}
 
+        # Marriages announced by each player
+        self.marriages: dict[int, list[Suit]] = {0: [], 1: []}
+
         # Opponent hand inference (per observer seat)
         self.opponent_known_cards: dict[int, set[Card]] = {0: set(), 1: set()}
         self.opponent_void_suits: dict[int, set[Suit]] = {0: set(), 1: set()}
@@ -182,6 +185,8 @@ class RoundState:
             is_winner_action_phase=is_winner_action,
             my_won_cards=list(self.won_cards[seat]),
             opponent_won_cards=list(self.won_cards[opp]),
+            my_marriages=list(self.marriages[seat]),
+            opponent_marriages=list(self.marriages[opp]),
             opponent_known_cards=set(self.opponent_known_cards[seat]),
             opponent_void_suits=set(self.opponent_void_suits[seat]),
             unknown_cards=unknown,
@@ -332,6 +337,7 @@ class Round:
         if mar_l:
             marriages[leader] = mar_l
             st.scores[leader] += mar_l
+            st.marriages[leader].append(mar_suit_l)
 
         # --- Follower plays (sees leader's card) ---
         self._current_lead_card = card_l        # signal: this is a response
@@ -344,6 +350,7 @@ class Round:
         if mar_f:
             marriages[follower] = mar_f
             st.scores[follower] += mar_f
+            st.marriages[follower].append(_mar_suit_f)
 
         # --- Phase 2 non-following inference ---
         if st.phase == 2 and card_f.suit != card_l.suit:

@@ -209,6 +209,8 @@ class TerminalUI:
         print(f"  is_winner_action_phase = {view.is_winner_action_phase}")
         print(f"  my_won_cards       = {[str(c) for c in view.my_won_cards]}")
         print(f"  opponent_won_cards = {[str(c) for c in view.opponent_won_cards]}")
+        print(f"  my_marriages       = {[s.name for s in view.my_marriages]}")
+        print(f"  opponent_marriages = {[s.name for s in view.opponent_marriages]}")
         print(f"  opponent_known_cards = {sorted(str(c) for c in view.opponent_known_cards)}")
         print(f"  opponent_void_suits  = {sorted(s.name for s in view.opponent_void_suits)}")
         print(f"  unknown_cards      = {[str(c) for c in view.unknown_cards]}")

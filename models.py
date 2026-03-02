@@ -88,6 +88,8 @@ class PlayerView:
     is_winner_action_phase: bool
     my_won_cards: list[Card] = field(default_factory=list)        # cards I captured in tricks
     opponent_won_cards: list[Card] = field(default_factory=list)  # cards opponent captured
+    my_marriages: list[Suit] = field(default_factory=list)        # suits where I announced a marriage
+    opponent_marriages: list[Suit] = field(default_factory=list)  # suits where opponent announced
 
     # Opponent hand inference
     opponent_known_cards: set[Card] = field(default_factory=set)  # cards known to be in opponent's hand
