@@ -4,6 +4,7 @@ Sixty-Six card game — interactive entry point.
 Usage:
     python card_game.py              # play vs random bot
     python card_game.py greedy       # play vs greedy bot
+    python card_game.py ppo          # play vs PPO-trained neural net
     python card_game.py --PlayerView # show raw PlayerView fields
     python card_game.py --marriage   # force human's hand to include a marriage
     python card_game.py --marriage-bot   # force bot's hand to include a marriage
@@ -14,15 +15,33 @@ Usage:
 
 import sys
 
-from agents import HumanPlayer, RandomPlayer, GreedyPlayer, SmartPlayer
+import torch
+
+from agents import HumanPlayer, RandomPlayer, GreedyPlayer, SmartPlayer, PolicyPlayer
 from game import Match
+from net import ActorCriticNet
 from ui import TerminalUI
+
+
+def _make_ppo_player() -> PolicyPlayer:
+    """Load the PPO-trained actor-critic and wrap it in a greedy PolicyPlayer."""
+    import os
+    path = os.path.join(os.path.dirname(__file__), "policy_ppo_final.pt")
+    if not os.path.exists(path):
+        # fall back to best-checkpoint
+        path = os.path.join(os.path.dirname(__file__), "policy_ppo.pt")
+    ckpt = torch.load(path, map_location="cpu", weights_only=True)
+    model = ActorCriticNet()
+    model.load_state_dict(ckpt["model_state_dict"])
+    model.eval()
+    return PolicyPlayer(model, name="PPO-Bot", greedy=True)
 
 
 BOT_TYPES = {
     "random": lambda: RandomPlayer("Computer"),
     "greedy": lambda: GreedyPlayer("Computer"),
     "smart":  lambda: SmartPlayer("Computer"),
+    "ppo":   _make_ppo_player,
 }
 
 
