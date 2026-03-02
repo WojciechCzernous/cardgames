@@ -123,7 +123,8 @@ class RoundState:
         known = set(self.hands[seat]) | set(self.won_cards[0]) | set(self.won_cards[1])
         if self.trump_card is not None:
             known.add(self.trump_card)
-        unknown = sorted(all_cards - known, key=lambda c: (c.suit.value, RANK_VALUES[c.rank]))
+        _SUIT_ORDER = {s: i for i, s in enumerate(Suit)}
+        unknown = sorted(all_cards - known, key=lambda c: (_SUIT_ORDER[c.suit], RANK_VALUES[c.rank]))
         return unknown
 
     # ------------------------------------------------------------------
