@@ -25,6 +25,7 @@ import time
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from tqdm import tqdm
 
 from features import FEATURE_DIM, ACTION_DIM
 from net import ActorCriticNet
@@ -57,7 +58,7 @@ def play_batch(model: ActorCriticNet, opponent_model: ActorCriticNet,
              "reward_sum": 0.0, "games": n_games,
              "close_count": 0, "close_success": 0}
 
-    for _ in range(n_games):
+    for _ in tqdm(range(n_games), desc="Self-play", leave=False, unit="game"):
         agent.reset_trajectory()
 
         # Randomise seats to avoid positional bias
@@ -275,7 +276,7 @@ def evaluate_vs_greedy(model: ActorCriticNet, n_games: int = 500) -> dict:
     wins = losses = draws = 0
     gp_for = gp_against = 0
 
-    for i in range(n_games):
+    for i in tqdm(range(n_games), desc="Eval vs greedy", leave=False, unit="game"):
         seat_agent = i % 2  # alternate seats
         seat_opp = 1 - seat_agent
         players = {seat_agent: agent, seat_opp: greedy}
@@ -380,7 +381,9 @@ def main():
 
     best_win_rate = ev["win_rate"]
 
-    for iteration in range(start_iter + 1, start_iter + args.iterations + 1):
+    pbar = tqdm(range(start_iter + 1, start_iter + args.iterations + 1),
+                desc="PPO", unit="iter")
+    for iteration in pbar:
         t0 = time.perf_counter()
 
         # --- Collect trajectories ---
@@ -410,24 +413,26 @@ def main():
         avg_reward = stats["reward_sum"] / stats["games"]
         win_pct = stats["wins"] / stats["games"]
 
-        print(f"{iteration:4d}  {avg_reward:+7.3f}  {win_pct:5.1%}  "
-              f"{losses['pg_loss']:7.4f}  {losses['vf_loss']:7.4f}  "
-              f"{losses['entropy']:6.3f}  {losses['clip_frac']:5.2f}  "
-              f"{n_steps:6d}  {elapsed:5.1f}s")
+        pbar.set_postfix(reward=f"{avg_reward:+.2f}", win=f"{win_pct:.0%}",
+                         pg=f"{losses['pg_loss']:.3f}", ent=f"{losses['entropy']:.2f}")
+        tqdm.write(f"{iteration:4d}  {avg_reward:+7.3f}  {win_pct:5.1%}  "
+                   f"{losses['pg_loss']:7.4f}  {losses['vf_loss']:7.4f}  "
+                   f"{losses['entropy']:6.3f}  {losses['clip_frac']:5.2f}  "
+                   f"{n_steps:6d}  {elapsed:5.1f}s")
 
         # --- Refresh opponent snapshot ---
         if iteration % args.opponent_refresh == 0:
             opponent = copy.deepcopy(model)
             opponent.eval()
-            print(f"      ↻ opponent snapshot refreshed")
+            tqdm.write(f"      ↻ opponent snapshot refreshed")
 
         # --- Evaluate vs greedy ---
         if iteration % args.eval_interval == 0:
             model.eval()
             ev = evaluate_vs_greedy(model, args.eval_games)
             marker = " ★" if ev["win_rate"] > best_win_rate else ""
-            print(f"      eval vs greedy: win={ev['win_rate']:.1%}  "
-                  f"loss={ev['loss_rate']:.1%}  draw={ev['draw_rate']:.1%}{marker}")
+            tqdm.write(f"      eval vs greedy: win={ev['win_rate']:.1%}  "
+                      f"loss={ev['loss_rate']:.1%}  draw={ev['draw_rate']:.1%}{marker}")
 
             if ev["win_rate"] > best_win_rate:
                 best_win_rate = ev["win_rate"]
@@ -437,7 +442,7 @@ def main():
                     "iteration": iteration,
                     "win_rate_vs_greedy": ev["win_rate"],
                 }, args.out)
-                print(f"      saved best → {args.out}")
+                tqdm.write(f"      saved best → {args.out}")
 
     # Final save
     torch.save({
