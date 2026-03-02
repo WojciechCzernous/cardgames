@@ -69,22 +69,17 @@ def index_to_action(index: int, view: PlayerView) -> Action:
 
 def player_view_to_tensor(view: PlayerView) -> torch.Tensor:
     """Convert a PlayerView into a flat float32 tensor of shape (248,)."""
-    buf = torch.zeros(FEATURE_DIM, dtype=torch.float32)
+    buf = [0.0] * FEATURE_DIM
     pos = 0
 
-    def _write_card_vec(cards, offset):
-        for c in cards:
-            buf[offset + _card_idx(c)] = 1.0
-
-    def _write_suit_vec(suits, offset):
-        for s in suits:
-            buf[offset + _SUIT_IDX[s]] = 1.0
-
     # hand (24)
-    _write_card_vec(view.hand, pos); pos += 24
+    for c in view.hand:
+        buf[pos + _card_idx(c)] = 1.0
+    pos += 24
 
     # trump_suit (4)
-    buf[pos + _SUIT_IDX[view.trump_suit]] = 1.0; pos += 4
+    buf[pos + _SUIT_IDX[view.trump_suit]] = 1.0
+    pos += 4
 
     # trump_card (24, all-zero if None)
     if view.trump_card is not None:
@@ -92,25 +87,26 @@ def player_view_to_tensor(view: PlayerView) -> torch.Tensor:
     pos += 24
 
     # draw_pile_size (1)
-    buf[pos] = view.draw_pile_size / 10.0; pos += 1
+    buf[pos] = view.draw_pile_size * 0.1
+    pos += 1
 
     # phase (1)
-    buf[pos] = float(view.phase == 2); pos += 1
+    buf[pos] = float(view.phase == 2)
+    pos += 1
 
     # closed_by (2): [me, opponent]
     if view.closed_by is not None:
-        if view.closed_by == view.seat:
-            buf[pos] = 1.0
-        else:
-            buf[pos + 1] = 1.0
+        buf[pos + (0 if view.closed_by == view.seat else 1)] = 1.0
     pos += 2
 
     # my_score, opponent_score (1 each, ÷66)
-    buf[pos] = view.my_score / 66.0; pos += 1
-    buf[pos] = view.opponent_score / 66.0; pos += 1
+    buf[pos] = view.my_score / 66.0
+    buf[pos + 1] = view.opponent_score / 66.0
+    pos += 2
 
     # is_leading (1)
-    buf[pos] = float(view.is_leading); pos += 1
+    buf[pos] = float(view.is_leading)
+    pos += 1
 
     # lead_card (24, all-zero if None)
     if view.lead_card is not None:
@@ -123,52 +119,68 @@ def player_view_to_tensor(view: PlayerView) -> torch.Tensor:
     pos += 4
 
     # valid_actions: 24-bit play mask + 3 bits (swap/close/pass) = 27
+    _hand = view.hand
     for a in view.valid_actions:
-        if a.type == ActionType.PLAY_CARD and a.card_index is not None:
-            card = view.hand[a.card_index]
-            buf[pos + _card_idx(card)] = 1.0
-        elif a.type == ActionType.SWAP_TRUMP:
+        at = a.type
+        if at == ActionType.PLAY_CARD:
+            buf[pos + _card_idx(_hand[a.card_index])] = 1.0
+        elif at == ActionType.SWAP_TRUMP:
             buf[pos + 24] = 1.0
-        elif a.type == ActionType.CLOSE_GAME:
+        elif at == ActionType.CLOSE_GAME:
             buf[pos + 25] = 1.0
-        elif a.type == ActionType.PASS:
+        else:  # PASS
             buf[pos + 26] = 1.0
     pos += 27
 
     # is_winner_action_phase (1)
-    buf[pos] = float(view.is_winner_action_phase); pos += 1
+    buf[pos] = float(view.is_winner_action_phase)
+    pos += 1
 
     # my_won_cards (24)
-    _write_card_vec(view.my_won_cards, pos); pos += 24
+    for c in view.my_won_cards:
+        buf[pos + _card_idx(c)] = 1.0
+    pos += 24
 
     # opponent_won_cards (24)
-    _write_card_vec(view.opponent_won_cards, pos); pos += 24
+    for c in view.opponent_won_cards:
+        buf[pos + _card_idx(c)] = 1.0
+    pos += 24
 
     # my_marriages (4)
-    _write_suit_vec(view.my_marriages, pos); pos += 4
+    for s in view.my_marriages:
+        buf[pos + _SUIT_IDX[s]] = 1.0
+    pos += 4
 
     # opponent_marriages (4)
-    _write_suit_vec(view.opponent_marriages, pos); pos += 4
+    for s in view.opponent_marriages:
+        buf[pos + _SUIT_IDX[s]] = 1.0
+    pos += 4
 
     # opponent_known_cards (24)
-    _write_card_vec(view.opponent_known_cards, pos); pos += 24
+    for c in view.opponent_known_cards:
+        buf[pos + _card_idx(c)] = 1.0
+    pos += 24
 
     # opponent_void_suits (4)
-    _write_suit_vec(view.opponent_void_suits, pos); pos += 4
+    for s in view.opponent_void_suits:
+        buf[pos + _SUIT_IDX[s]] = 1.0
+    pos += 4
 
     # unknown_cards (24)
-    _write_card_vec(view.unknown_cards, pos); pos += 24
+    for c in view.unknown_cards:
+        buf[pos + _card_idx(c)] = 1.0
+    pos += 24
 
     # card_threats (24 floats, normalized ÷6)
+    _inv6 = 1.0 / 6.0
     for card, count in view.card_threats.items():
-        buf[pos + _card_idx(card)] = count / 6.0
+        buf[pos + _card_idx(card)] = count * _inv6
     pos += 24
 
     # opponent_hand_size (1)
-    buf[pos] = view.opponent_hand_size / 6.0; pos += 1
+    buf[pos] = view.opponent_hand_size / 6.0
 
-    assert pos == FEATURE_DIM
-    return buf
+    return torch.tensor(buf, dtype=torch.float32)
 
 
 def sample_transition(transitions: list[tuple[PlayerView, Action, int]]
