@@ -48,6 +48,61 @@ def _should_swap_trump(view: PlayerView) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Close-game decision helper
+# ---------------------------------------------------------------------------
+
+def _should_close(view: PlayerView) -> bool:
+    """
+    Decide whether to close the game.
+
+    Estimates a conservative lower-bound on points reachable with just
+    the cards in hand (no more draws).  We count:
+      - marriage points for any K+Q pair we hold (auto-announced on lead)
+      - sure trick points for cards with 0 threats (nothing unseen beats them)
+      - likely trick points for low-threat trump cards
+    Each won trick also captures the opponent's card; we assume a modest
+    2-point average capture for sure winners.
+    """
+    from rules import find_marriages, marriage_value
+
+    score = view.my_score
+
+    # --- marriage points ---
+    marriages = find_marriages(view.hand)
+    for suit in marriages:
+        score += marriage_value(suit, view.trump_suit)
+
+    # --- trick points ---
+    threats = view.card_threats
+    hand = view.hand
+
+    sure_winners: list[Card] = []
+    likely_winners: list[Card] = []
+
+    for card in hand:
+        t = threats.get(card, 99)
+        if t == 0:
+            sure_winners.append(card)
+        elif card.suit == view.trump_suit and t <= 1:
+            # Low-threat trump (e.g. K of trump with only A unseen)
+            likely_winners.append(card)
+
+    # Sure winners: own value + conservative 2 pts captured from opponent
+    for card in sure_winners:
+        score += card.value() + 2
+
+    # Likely winners: count own value only (conservative)
+    for card in likely_winners:
+        score += card.value()
+
+    # --- decision ---
+    # Under pressure (opponent close to winning), accept more risk
+    if view.opponent_score >= 33:
+        return score >= 40
+    return score >= 46
+
+
+# ---------------------------------------------------------------------------
 # Abstract base
 # ---------------------------------------------------------------------------
 
@@ -133,6 +188,11 @@ class GreedyPlayer(Player):
             swaps = [a for a in va if a.type.value == "swap_trump"]
             if swaps and _should_swap_trump(view):
                 return swaps[0]
+            # Consider closing
+            if _should_close(view):
+                closes = [a for a in va if a.type.value == "close_game"]
+                if closes:
+                    return closes[0]
             return Action(ActionType.PASS)
 
         plays = [a for a in va if a.type.value == "play_card"]
