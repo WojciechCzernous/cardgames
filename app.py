@@ -391,10 +391,10 @@ rs = s.rs
 c1, c2, c3 = st.columns([3, 3, 2])
 with c1:
     st.markdown(
-        f"**{s.match_scores[HUMAN]} – {s.match_scores[AI]}** "
-        f"(rundy: {rs.scores[HUMAN]} – {rs.scores[AI]})")
+        f"**{rs.scores[HUMAN]} – {rs.scores[AI]}** "
+        f"(duże punkty: {s.match_scores[HUMAN]} – {s.match_scores[AI]})")
 with c2:
-    phase_label = "Faza 2" if rs.phase == 2 else "Faza 1"
+    phase_label = "Talon otwarty" if rs.phase == 2 else "Talon zamknięty"
     closed_tag = " 🔒" if rs.closed else ""
     st.markdown(f"{phase_label}{closed_tag} · Kart w talonie: {len(rs.draw_pile)}")
 with c3:
