@@ -394,7 +394,7 @@ with c1:
         f"**{rs.scores[HUMAN]} – {rs.scores[AI]}** "
         f"(duże punkty: {s.match_scores[HUMAN]} – {s.match_scores[AI]})")
 with c2:
-    phase_label = "Talon otwarty" if rs.phase == 2 else "Talon zamknięty"
+    phase_label = "Talon zamknięty" if rs.phase == 2 else "Talon otwarty"
     closed_tag = " 🔒" if rs.closed else ""
     st.markdown(f"{phase_label}{closed_tag} · Kart w talonie: {len(rs.draw_pile)}")
 with c3:
