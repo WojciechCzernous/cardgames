@@ -143,6 +143,9 @@ def exec_action(state: RoundState, seat: int, action: Action,
             state.marriages[seat].append(mar_suit)
             partner = " Q" if card.rank == " K" else " K"
             state.opponent_known_cards[opp].add(Card(partner, mar_suit))
+            # Instant win if marriage pushes score to 66+
+            if state.scores[seat] >= WIN_SCORE:
+                state.round_winner = seat
 
         return card, mar_pts, mar_suit
 
@@ -261,6 +264,14 @@ def advance(state: RoundState, ms: dict):
             s.ai_msg = f"AI zagrało {clabel(card)} i ogłosiło meldunek {mar_suit.value} (+{mar_pts} pkt)!"
         else:
             s.ai_msg = ""
+        # Marriage may have won the round instantly
+        if state.round_winner is not None:
+            winner, gpts = compute_game_points(
+                state.scores, state.round_winner, state.closed, state.closed_by)
+            s.round_result = {
+                'winner': winner, 'gpts': gpts, 'scores': dict(state.scores)}
+            s.stage = 'round_over'
+            return
         s.stage = 'human_follow'
 
 
@@ -690,6 +701,21 @@ if s.stage in ('human_lead', 'human_follow'):
         if h_mar_pts:
             s.game_log.append(
                 f"Ogłosiłeś meldunek {h_mar_suit.value} +{h_mar_pts} pkt")
+
+        # Marriage may have won the round instantly
+        if rs.round_winner is not None:
+            winner, gpts = compute_game_points(
+                rs.scores, rs.round_winner, rs.closed, rs.closed_by)
+            s.round_result = {
+                'winner': winner, 'gpts': gpts, 'scores': dict(rs.scores)}
+            s.trick_info = {
+                'cards': {HUMAN: human_card, AI: None},
+                'winner': rs.round_winner,
+                'pts': 0,
+                'marriages': {HUMAN: h_mar_pts, AI: 0},
+            }
+            s.stage = 'round_over'
+            st.rerun()
 
         if leading:
             # Human led — show card on table, AI responds, resolve
