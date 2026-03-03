@@ -289,10 +289,6 @@ def after_trick_continue(state: RoundState, ms: dict):
     # Draw (phase 1 only)
     if state.phase == 1 and not state.closed:
         do_draw(state)
-        # Report what human drew
-        if state.last_drawn.get(HUMAN):
-            s.drawn_msg = f"Dobrałeś: {clabel(state.last_drawn[HUMAN])}"
-
     trick_winner = s.trick_info['winner']
 
     # Winner actions (phase 1 only)
@@ -343,7 +339,8 @@ st.markdown("""
     [data-testid="stMetric"] { padding: 0; }
     [data-testid="stMetricValue"] { font-size: 1.4rem; }
     [data-testid="stMetricDelta"] { font-size: 0.85rem; }
-    .stDivider { margin: 0.3rem 0; }
+    /* Tighten spacing between page elements */
+    [data-testid="stVerticalBlock"] { gap: 0.4rem !important; }
     /* Larger card button text */
     div[data-testid="stColumn"] button p { font-size: 1.4rem !important; }
 </style>
@@ -427,7 +424,8 @@ with c2:
 if rs.last_trick_info:
     st.caption(rs.last_trick_info)
 
-st.divider()
+if s.stage != 'human_lead':
+    st.markdown("**Karty na stole:**")
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Round-over / match-over screens
@@ -575,9 +573,6 @@ if s.stage == 'human_winner_action':
                            result_text=f"**{won_str}** +{ti['pts']} pkt",
                            prefix="wa_tbl")
 
-    if s.get('drawn_msg'):
-        st.caption(s.drawn_msg)
-
     view      = rs.player_view(HUMAN, is_winner_action=True,
                                match_scores=s.match_scores)
     has_swap  = any(a.type.value == "swap_trump" for a in view.valid_actions)
@@ -648,9 +643,6 @@ if s.stage in ('human_lead', 'human_follow'):
 
     if s.get('ai_msg'):
         st.caption(s.ai_msg)
-    if s.get('drawn_msg'):
-        st.caption(s.drawn_msg)
-
     view       = rs.player_view(HUMAN, lead_card=lc, match_scores=s.match_scores)
     valid_idxs = {a.card_index for a in view.valid_actions
                   if a.type.value == 'play_card'}
