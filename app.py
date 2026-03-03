@@ -517,7 +517,7 @@ if s.stage == 'trick_cards':
         badge  = "&nbsp;★" if is_winner else ""
         opacity = "1.0" if is_winner else "0.6"
         return (
-            f'<div style="text-align:center; padding:12px; background:{bg}; '
+            f'<div style="text-align:center; padding:12px; margin-bottom:1rem; background:{bg}; '
             f'border-radius:10px; border:{border}; opacity:{opacity};">'
             f'<div style="font-size:0.85em; color:inherit; opacity:0.6; margin-bottom:6px;">{label}{badge}</div>'
             f'<div style="font-size:3em; color:{color}; font-weight:bold;">{clabel(card)}</div>'
@@ -624,7 +624,7 @@ if s.stage == 'human_follow' and s.lead_card is not None:
         mar_pts = marriage_value(s.lead_marriage, rs.trump_suit)
         mar_extra = f'<div style="font-size:0.85em; margin-top:4px;">💍+{mar_pts} pkt</div>'
     st.markdown(
-        f'<div style="text-align:center; padding:12px; background:rgba(128,128,128,0.1); '
+        f'<div style="text-align:center; padding:12px; margin-bottom:1rem; background:rgba(128,128,128,0.1); '
         f'border-radius:10px; border:1px solid rgba(128,128,128,0.3);">'
         f'<div style="font-size:0.85em; color:inherit; opacity:0.6; margin-bottom:6px;">AI</div>'
         f'<div style="font-size:3em; color:{color}; font-weight:bold;">{clabel(card)}</div>'
