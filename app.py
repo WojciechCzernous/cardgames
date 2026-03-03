@@ -163,9 +163,12 @@ def do_draw(state: RoundState):
         state.hands[leader].append(d)
         state.last_drawn[leader] = d
         if state.draw_pile:
-            state.hands[follower].append(state.draw_pile.pop())
+            d2 = state.draw_pile.pop()
+            state.hands[follower].append(d2)
+            state.last_drawn[follower] = d2
         elif state.trump_card:
             state.hands[follower].append(state.trump_card)
+            state.last_drawn[follower] = state.trump_card
             state.trump_card = None
     elif state.trump_card:
         state.hands[leader].append(state.trump_card)
