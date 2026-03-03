@@ -11,6 +11,8 @@ Share on a local network:
     Find your IP with: ifconfig | grep "inet "
 """
 
+import time
+
 import streamlit as st
 
 from game import RoundState
@@ -463,26 +465,61 @@ if s.stage == 'match_over':
 # Table (trick area)
 # ──────────────────────────────────────────────────────────────────────────────
 
-# ── trick_shown — auto-advance: draw, winner actions, then continue ────────────
-if s.stage == 'trick_shown':
-    ti   = s.trick_info
+# ── trick_cards — show both cards for 3 seconds with winner highlighted ─────────
+if s.stage == 'trick_cards':
+    ti       = s.trick_info
     you_card = ti['cards'][HUMAN]
     ai_card  = ti['cards'][AI]
+    winner   = ti['winner']
 
-    won_str = "**Ty wygrałeś!**" if ti['winner'] == HUMAN else "**AI wygrało!**"
-    mar_info = ""
+    def _card_box(card: Card, is_winner: bool, label: str) -> str:
+        color  = "#cc0000" if is_red(card) else "#111"
+        bg     = "#fffde7" if is_winner else "#f0f0f0"
+        border = "2px solid #f9a825" if is_winner else "1px solid #ccc"
+        badge  = "&nbsp;★" if is_winner else ""
+        opacity = "1.0" if is_winner else "0.6"
+        return (
+            f'<div style="text-align:center; padding:12px; background:{bg}; '
+            f'border-radius:10px; border:{border}; opacity:{opacity};">'
+            f'<div style="font-size:0.85em; color:#666; margin-bottom:6px;">{label}{badge}</div>'
+            f'<div style="font-size:3em; color:{color}; font-weight:bold;">{clabel(card)}</div>'
+            f'</div>'
+        )
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown(_card_box(you_card, winner == HUMAN, "Ty"), unsafe_allow_html=True)
+    with col2:
+        st.markdown(_card_box(ai_card, winner == AI, "AI"), unsafe_allow_html=True)
+
+    time.sleep(3)
+    s.stage = 'trick_points'
+    st.rerun()
+
+# ── trick_points — show trick result for 2 seconds ───────────────────────────
+if s.stage == 'trick_points':
+    ti     = s.trick_info
+    winner = ti['winner']
+    pts    = ti['pts']
+
+    mar_parts = []
     for seat, mar_pts in ti['marriages'].items():
         if mar_pts:
-            who_mar = "Ty" if seat == HUMAN else "AI"
-            mar_info += f" · 💍{who_mar}+{mar_pts}"
+            who = "Ty" if seat == HUMAN else "AI"
+            mar_parts.append(f"💍 {who} +{mar_pts}")
+    mar_line = ("<br><span style='font-size:1em;'>" + " &nbsp;·&nbsp; ".join(mar_parts) + "</span>") if mar_parts else ""
 
-    # Store trick summary for display on the next screen
-    s.last_trick_summary = (
-        f"Ty: {card_html(you_card, '1.2em')} &nbsp;vs&nbsp; "
-        f"AI: {card_html(ai_card, '1.2em')} &nbsp;→&nbsp; "
-        f"{won_str} +{ti['pts']} pkt{mar_info}")
+    won_label = "Ty wygrałeś lewę!" if winner == HUMAN else "AI wygrało lewę."
+    pts_color = "#2e7d32" if winner == HUMAN else "#c62828"
+    st.markdown(
+        f'<div style="text-align:center; padding:24px 8px;">'
+        f'<div style="font-size:1.2em; font-weight:bold; margin-bottom:8px;">{won_label}</div>'
+        f'<div style="font-size:2.8em; font-weight:bold; color:{pts_color};">+{pts} pkt{mar_line}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
-    # Auto-advance: draw + winner actions
+    time.sleep(2)
     after_trick_continue(rs, s.match_scores)
     st.rerun()
 
@@ -692,5 +729,5 @@ if s.stage in ('human_lead', 'human_follow'):
                 'marriages': {HUMAN: h_mar_pts, AI: 0},
             }
 
-        s.stage = 'trick_shown'
+        s.stage = 'trick_cards'
         st.rerun()
