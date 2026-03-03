@@ -52,10 +52,10 @@ def karta(n: int) -> str:
 
 
 def pkt_meczu(n: int) -> str:
-    """Polish plural for 'punkt meczu'."""
-    if n == 1: return "punkt meczu"
-    if 2 <= n <= 4: return "punkty meczu"
-    return "punktów meczu"
+    """Polish plural for 'duży punkt'."""
+    if n == 1: return "duży punkt"
+    if 2 <= n <= 4: return "duże punkty"
+    return "dużych punktów"
 
 
 def card_btn_label(c: Card) -> str:
@@ -331,8 +331,8 @@ Grasz przeciwko komputerowi.
 - **Faza 1** (stos aktywny): zagraj dowolną kartę; obaj gracze dobierają kartę po każdej lewie.
   Zwycięzca lewy może wymienić dziewiątkę atutową za odkrytą kartę atu lub zamknąć grę.
 - **Faza 2** (stos wyczerpany lub gra zamknięta): obowiązek koloru → obowiązek atu → dowolna.
-- Pierwszy do **66 punktów** wygrywa rundę. Zwycięzca rundy zdobywa 1–3 **punkty meczu**.
-- Pierwszy do **7 punktów meczu** wygrywa mecz!
+- Pierwszy zdobywca **66 punktów** wygrywa rundę. Zwycięzca rundy zdobywa 1–3 **duże punkty**.
+- Pierwszy zdobywca **7 dużych punktów** wygrywa mecz!
 """)
     if st.button("▶ Rozpocznij grę", type="primary"):
         reset_match()
@@ -348,13 +348,13 @@ rs = s.rs
 # Score row
 c1, c2, c3 = st.columns([2, 1, 2])
 with c1:
-    st.metric("🧑 Ty  (pkt meczu)", s.match_scores[HUMAN],
+    st.metric("🧑 Ty  (duże punkty)", s.match_scores[HUMAN],
               delta=f"wynik rundy: {rs.scores[HUMAN]}")
 with c2:
     st.markdown("<div style='text-align:center; padding-top:1.8em;'>vs</div>",
                 unsafe_allow_html=True)
 with c3:
-    st.metric("🤖 AI  (pkt meczu)", s.match_scores[AI],
+    st.metric("🤖 AI  (duże punkty)", s.match_scores[AI],
               delta=f"wynik rundy: {rs.scores[AI]}")
 
 st.divider()
@@ -400,7 +400,7 @@ if s.stage == 'match_over':
         st.subheader("🏆 Koniec meczu — Ty wygrałeś!")
     else:
         st.subheader("🏆 Koniec meczu — AI wygrało!")
-    st.write(f"Wynik końcowy: **Ty {s.match_scores[HUMAN]}** — **AI {s.match_scores[AI]}** pkt meczu")
+    st.write(f"Wynik końcowy: **Ty {s.match_scores[HUMAN]}** — **AI {s.match_scores[AI]}** duże punkty")
 
     with st.expander("Dziennik gry"):
         for line in s.game_log:
