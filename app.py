@@ -350,6 +350,9 @@ if s.stage == 'pre_turn':
 
 if s.stage == 'welcome':
     st.title("🃏 Sześćdziesiąt Sześć")
+    if st.button("▶ Rozpocznij grę", type="primary"):
+        reset_match()
+        st.rerun()
     st.markdown("""
 Witaj! **Sześćdziesiąt Sześć** to jedna ze starszych gier karcianych. 
 Do Polski gra ta dotrała pod koniec XVII wieku, we francuskiej formie i pod nazwą mariasza; jej warianty znane były także jako gaigel i sznaps. 
@@ -376,9 +379,6 @@ Grasz przeciwko komputerowi.
 - Pierwszy zdobywca **66 punktów** wygrywa rundę. Zwycięzca rundy zdobywa 1–3 **duże punkty**.
 - Pierwszy zdobywca **7 dużych punktów** wygrywa mecz!
 """)
-    if st.button("▶ Rozpocznij grę", type="primary"):
-        reset_match()
-        st.rerun()
     st.stop()
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -581,11 +581,20 @@ if s.stage == 'human_winner_action':
 
 # ── Show lead card if human is following ──────────────────────────────────────
 if s.stage == 'human_follow' and s.lead_card is not None:
+    card = s.lead_card
+    color = "#cc0000" if is_red(card) else "#111"
     mar_extra = ""
     if s.lead_marriage:
         mar_pts = marriage_value(s.lead_marriage, rs.trump_suit)
-        mar_extra = f" · 💍+{mar_pts} pkt"
-    render_table_cards({"AI": s.lead_card}, result_text=mar_extra, prefix="ai_lead")
+        mar_extra = f'<div style="font-size:0.85em; margin-top:4px;">💍+{mar_pts} pkt</div>'
+    st.markdown(
+        f'<div style="text-align:center; padding:12px; background:#f0f0f0; '
+        f'border-radius:10px; border:1px solid #ccc;">'
+        f'<div style="font-size:0.85em; color:#666; margin-bottom:6px;">AI</div>'
+        f'<div style="font-size:3em; color:{color}; font-weight:bold;">{clabel(card)}</div>'
+        f'{mar_extra}</div>',
+        unsafe_allow_html=True,
+    )
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Human hand — card buttons
@@ -596,21 +605,6 @@ if s.stage in ('human_lead', 'human_follow'):
     is_lead  = (s.stage == 'human_lead')
     lc       = s.lead_card if not is_lead else None
 
-    # Show last trick result as table card buttons
-    if s.get('trick_info') and s.get('last_trick_summary'):
-        ti = s.trick_info
-        you_card = ti['cards'].get(HUMAN)
-        ai_card  = ti['cards'].get(AI)
-        if you_card and ai_card:
-            won_str = "Wygrana!" if ti['winner'] == HUMAN else "Przegrana"
-            mar_info = ""
-            for seat, mar_pts in ti['marriages'].items():
-                if mar_pts:
-                    who_mar = "Ty" if seat == HUMAN else "AI"
-                    mar_info += f" · 💍{who_mar}+{mar_pts}"
-            render_table_cards({"Ty": you_card, "AI": ai_card},
-                               result_text=f"**{won_str}** +{ti['pts']} pkt{mar_info}",
-                               prefix="prev")
     if s.get('ai_msg'):
         st.caption(s.ai_msg)
     if s.get('drawn_msg'):
