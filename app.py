@@ -591,7 +591,7 @@ if s.stage == 'human_winner_action':
                 s.game_log.append(f"Wymieniłeś 9 → {clabel(old)}")
                 # Stay on this screen so player can still close or pass
                 st.rerun()
-            elif atype == 'close' and not acted and st.button("🔒 Zamknij", use_container_width=True):
+            elif atype == 'close' and not acted and st.button("🔒 Zamknij talon", use_container_width=True):
                 exec_action(rs, HUMAN, Action(ActionType.CLOSE_GAME))
                 s.game_log.append("Zamknąłeś grę!")
                 acted = True
