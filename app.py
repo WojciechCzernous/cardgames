@@ -6,7 +6,7 @@ Run locally:
     streamlit run app.py
 
 Share on a local network:
-    streamlit run app.py --server.address 0.0.0.0 --server.port 8501
+    streamlit run app.py --server.address 0.0.0.0 --server.port 8501 --server.headless true --browser.serverAddress localhost
     Then open http://<your-ip>:8501 in any browser on the same network.
     Find your IP with: ifconfig | grep "inet "
 """
