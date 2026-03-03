@@ -373,7 +373,7 @@ if s.stage == 'welcome':
         st.rerun()
     st.markdown("""
 Witaj! **Sześćdziesiąt Sześć** to jedna ze starszych gier karcianych. 
-Do Polski gra ta dotrała pod koniec XVII wieku, we francuskiej formie i pod nazwą mariasza; jej warianty znane były także jako gaigel i sznaps. 
+Do Polski gra ta dotarła pod koniec XVII wieku, we francuskiej formie i pod nazwą mariasza; jej warianty znane były także jako gaigel i sznaps
 (patrz: Lech Pijanowski, "Przewodnik gier", wyd. Iskry, 1973, Warszawa; str. 281-283).
 
 Grasz przeciwko komputerowi.
