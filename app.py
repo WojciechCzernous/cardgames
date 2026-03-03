@@ -42,7 +42,7 @@ def is_red(c: Card) -> bool:
     return c.suit in (Suit.HEARTS, Suit.DIAMONDS)
 
 def card_html(c: Card, size: str = "2em", extra_style: str = "") -> str:
-    color = "#cc0000" if is_red(c) else "#111"
+    color = "#cc0000" if is_red(c) else "inherit"
     return (f'<span style="font-size:{size}; color:{color}; font-weight:bold;'
             f' {extra_style}">{clabel(c)}</span>')
 
@@ -415,7 +415,7 @@ with c1:
         unsafe_allow_html=True)
 with c2:
     n_pile = len(rs.draw_pile)
-    trump_color = "#cc0000" if rs.trump_suit in (Suit.HEARTS, Suit.DIAMONDS) else "#111"
+    trump_color = "#cc0000" if rs.trump_suit in (Suit.HEARTS, Suit.DIAMONDS) else "inherit"
     trump_html = card_html(rs.trump_card, size='1.4em') if rs.trump_card else f'<span style="font-size:1.4em; color:{trump_color}; font-weight:bold;">{rs.trump_suit.value}</span>'
     if rs.closed or rs.phase == 2:
         closed_tag = " 🔒" if rs.closed else ""
@@ -509,7 +509,7 @@ if s.stage == 'trick_cards':
     winner   = ti['winner']
 
     def _card_box(card: Card, is_winner: bool, label: str) -> str:
-        color  = "#cc0000" if is_red(card) else "#111"
+        color  = "#cc0000" if is_red(card) else "inherit"
         bg     = "#fffde7" if is_winner else "#f0f0f0"
         border = "2px solid #f9a825" if is_winner else "1px solid #ccc"
         badge  = "&nbsp;★" if is_winner else ""
@@ -619,7 +619,7 @@ if s.stage == 'human_winner_action':
 # ── Show lead card if human is following ──────────────────────────────────────
 if s.stage == 'human_follow' and s.lead_card is not None:
     card = s.lead_card
-    color = "#cc0000" if is_red(card) else "#111"
+    color = "#cc0000" if is_red(card) else "inherit"
     mar_extra = ""
     if s.lead_marriage:
         mar_pts = marriage_value(s.lead_marriage, rs.trump_suit)
