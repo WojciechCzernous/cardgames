@@ -435,7 +435,7 @@ if s.stage == 'round_over':
     rr = s.round_result
     gpts = rr['gpts']
     if rr['winner'] == HUMAN:
-        round_summary = "Ty wygrałeś rundę!"
+        round_summary = "Ty wygrałaś rundę!"
     elif rr['winner'] == AI:
         round_summary = "AI wygrało rundę!"
     else:
@@ -465,7 +465,7 @@ if s.stage == 'match_over':
     winner = 0 if s.match_scores[HUMAN] >= MATCH_WIN else 1
     st.balloons()
     if winner == HUMAN:
-        st.subheader("🏆 Koniec meczu — Ty wygrałeś!")
+        st.subheader("🏆 Koniec meczu — Ty wygrałaś!")
     else:
         st.subheader("🏆 Koniec meczu — AI wygrało!")
     st.write(f"Wynik końcowy: **Ty {s.match_scores[HUMAN]}** — **AI {s.match_scores[AI]}** duże punkty")
@@ -590,12 +590,12 @@ if s.stage == 'human_winner_action':
             if atype == 'swap' and st.button("🔄 Wymień 9↔atu", use_container_width=True):
                 old = rs.trump_card
                 exec_action(rs, HUMAN, Action(ActionType.SWAP_TRUMP))
-                s.game_log.append(f"Wymieniłeś 9 → {clabel(old)}")
+                s.game_log.append(f"Wymieniłaś 9 → {clabel(old)}")
                 # Stay on this screen so player can still close or pass
                 st.rerun()
             elif atype == 'close' and not acted and st.button("🔒 Zamknij talon", use_container_width=True):
                 exec_action(rs, HUMAN, Action(ActionType.CLOSE_GAME))
-                s.game_log.append("Zamknąłeś grę!")
+                s.game_log.append("Zamknęłaś grę!")
                 acted = True
             elif atype == 'pass' and not acted and st.button("▶ Graj dalej", use_container_width=True, type="primary"):
                 acted = True
@@ -709,7 +709,7 @@ if s.stage in ('human_lead', 'human_follow'):
 
         if h_mar_pts:
             s.game_log.append(
-                f"Ogłosiłeś meldunek {h_mar_suit.value} +{h_mar_pts} pkt")
+                f"Ogłosiłaś meldunek {h_mar_suit.value} +{h_mar_pts} pkt")
 
         # Marriage may have won the round instantly
         if rs.round_winner is not None:
@@ -747,9 +747,9 @@ if s.stage in ('human_lead', 'human_follow'):
                 mar_info += f" · 💍Ty+{h_mar_pts}"
             if ai_mar_pts:
                 mar_info += f" · 💍AI+{ai_mar_pts}"
-            won_str = "**Ty wygrałeś!**" if winner == HUMAN else "**AI wygrało!**"
+            won_str = "**Ty wygrałaś!**" if winner == HUMAN else "**AI wygrało!**"
             s.last_trick_summary = (
-                f"Zagrałeś: {card_html(human_card, '1.2em')} &nbsp;↔&nbsp; "
+                f"Zagrałaś: {card_html(human_card, '1.2em')} &nbsp;↔&nbsp; "
                 f"AI: {card_html(ai_card, '1.2em')} &nbsp;→&nbsp; "
                 f"{won_str} +{pts} pkt{mar_info}")
 
@@ -768,7 +768,7 @@ if s.stage in ('human_lead', 'human_follow'):
             mar_info = ""
             if h_mar_pts:
                 mar_info += f" · 💍Ty+{h_mar_pts}"
-            won_str = "**Ty wygrałeś!**" if winner == HUMAN else "**AI wygrało!**"
+            won_str = "**Ty wygrałaś!**" if winner == HUMAN else "**AI wygrało!**"
             s.last_trick_summary = (
                 f"AI: {card_html(leader_card, '1.2em')} &nbsp;↔&nbsp; "
                 f"Ty: {card_html(follow_card, '1.2em')} &nbsp;→&nbsp; "
