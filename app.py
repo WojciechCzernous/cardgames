@@ -391,8 +391,10 @@ rs = s.rs
 c1, c2, c3 = st.columns([3, 3, 2])
 with c1:
     st.markdown(
-        f"**{rs.scores[HUMAN]} – {rs.scores[AI]}** "
-        f"(duże punkty: {s.match_scores[HUMAN]} – {s.match_scores[AI]})")
+        f'<span style="font-size:1.6em; font-weight:bold;">{rs.scores[HUMAN]} – {rs.scores[AI]}</span>'
+        f'&nbsp; <span style="font-size:0.9em; color:#666;">'
+        f'(duże punkty: {s.match_scores[HUMAN]} – {s.match_scores[AI]})</span>',
+        unsafe_allow_html=True)
 with c2:
     phase_label = "Talon zamknięty" if rs.phase == 2 else "Talon otwarty"
     closed_tag = " 🔒" if rs.closed else ""
@@ -556,7 +558,8 @@ if s.stage == 'human_winner_action':
                 old = rs.trump_card
                 exec_action(rs, HUMAN, Action(ActionType.SWAP_TRUMP))
                 s.game_log.append(f"Wymieniłeś 9 → {clabel(old)}")
-                acted = True
+                # Stay on this screen so player can still close or pass
+                st.rerun()
             elif atype == 'close' and not acted and st.button("🔒 Zamknij", use_container_width=True):
                 exec_action(rs, HUMAN, Action(ActionType.CLOSE_GAME))
                 s.game_log.append("Zamknąłeś grę!")
