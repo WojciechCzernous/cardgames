@@ -59,9 +59,6 @@ def pkt_meczu(n: int) -> str:
 
 
 def card_btn_label(c: Card) -> str:
-    pts = c.value()
-    if pts > 0:
-        return f"{RANK_DISP[c.rank]}{c.suit.value}\n({pts} pkt)"
     return f"{RANK_DISP[c.rank]}{c.suit.value}"
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -568,14 +565,6 @@ if s.stage in ('human_lead', 'human_follow'):
         with cols[i]:
             valid   = (i in valid_idxs)
             label   = card_btn_label(card)
-
-            # Colour styling via markdown — button text is plain
-            color = "#cc0000" if is_red(card) else "#111"
-            st.markdown(
-                f'<div style="text-align:center; font-size:1.4em; '
-                f'color:{color}; {"" if valid else "opacity:0.35;"}"> '
-                f'{clabel(card)}</div>',
-                unsafe_allow_html=True)
 
             if st.button(
                 label,
