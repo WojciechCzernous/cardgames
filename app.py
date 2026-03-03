@@ -388,7 +388,7 @@ Grasz przeciwko komputerowi.
 rs = s.rs
 
 # Score + game info — single compact row
-c1, c2, c3 = st.columns([3, 3, 2])
+c1, c2 = st.columns([3, 5])
 with c1:
     st.markdown(
         f'<span style="font-size:1.6em; font-weight:bold;">{rs.scores[HUMAN]} – {rs.scores[AI]}</span>'
@@ -396,13 +396,14 @@ with c1:
         f'(duże punkty: {s.match_scores[HUMAN]} – {s.match_scores[AI]})</span>',
         unsafe_allow_html=True)
 with c2:
-    phase_label = "Talon zamknięty" if rs.phase == 2 else "Talon otwarty"
-    closed_tag = " 🔒" if rs.closed else ""
-    st.markdown(f"{phase_label}{closed_tag} · Kart w talonie: {len(rs.draw_pile)}")
-with c3:
+    n_pile = len(rs.draw_pile)
     trump_color = "#cc0000" if rs.trump_suit in (Suit.HEARTS, Suit.DIAMONDS) else "#111"
-    trump_disp = card_html(rs.trump_card, size='1.4em') if rs.trump_card else f'<span style="font-size:1.4em; color:{trump_color}; font-weight:bold;">{rs.trump_suit.value}</span>'
-    st.markdown(f"Atu: {trump_disp}", unsafe_allow_html=True)
+    trump_html = card_html(rs.trump_card, size='1.4em') if rs.trump_card else f'<span style="font-size:1.4em; color:{trump_color}; font-weight:bold;">{rs.trump_suit.value}</span>'
+    if rs.closed or rs.phase == 2:
+        closed_tag = " 🔒" if rs.closed else ""
+        st.markdown(f"Talon zamknięty{closed_tag} — {n_pile} {karta(n_pile)}.", unsafe_allow_html=True)
+    else:
+        st.markdown(f"Talon otwarty — {n_pile} {karta(n_pile)} + atu: {trump_html}", unsafe_allow_html=True)
 
 if rs.last_trick_info:
     st.caption(rs.last_trick_info)
