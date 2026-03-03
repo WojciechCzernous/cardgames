@@ -542,6 +542,19 @@ if s.stage in ('human_lead', 'human_follow'):
                    else "**🧑 Twoje karty** — kliknij kartę, żeby odpowiedzieć:")
     st.markdown(action_text)
 
+    # Inject per-button CSS to color red suits
+    # Streamlit renders each button's key in a parent div's id attribute
+    css_rules = []
+    for i, card in enumerate(hand):
+        if is_red(card):
+            css_rules.append(
+                f'div[data-testid="stColumn"]:nth-of-type({i+1}) button p {{\n'
+                f'  color: #cc0000 !important;\n'
+                f'}}'
+            )
+    if css_rules:
+        st.markdown(f"<style>{''.join(css_rules)}</style>", unsafe_allow_html=True)
+
     cols = st.columns(len(hand))
     played_action = None
 
