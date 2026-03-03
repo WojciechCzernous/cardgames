@@ -289,7 +289,7 @@ st.set_page_config(page_title="Sześćdziesiąt Sześć", page_icon="🃏", layo
 # Reduce default Streamlit padding for a more compact layout
 st.markdown("""
 <style>
-    .block-container { padding-top: 1rem; padding-bottom: 0rem; }
+    .block-container { padding-top: 2.5rem; padding-bottom: 0rem; }
     [data-testid="stMetric"] { padding: 0; }
     [data-testid="stMetricValue"] { font-size: 1.4rem; }
     [data-testid="stMetricDelta"] { font-size: 0.85rem; }
@@ -433,39 +433,28 @@ if s.stage == 'match_over':
 # Table (trick area)
 # ──────────────────────────────────────────────────────────────────────────────
 
-# ── trick_shown ────────────────────────────────────────────────────────────────
+# ── trick_shown — auto-advance: draw, winner actions, then continue ────────────
 if s.stage == 'trick_shown':
     ti   = s.trick_info
-    ldr  = s.trick_leader       # who led
-    flwr = 1 - ldr              # who followed
+    you_card = ti['cards'][HUMAN]
+    ai_card  = ti['cards'][AI]
 
-    leader_card   = ti['cards'][ldr]
-    follower_card = ti['cards'][flwr]
-    you_card      = ti['cards'][HUMAN]
-    ai_card       = ti['cards'][AI]
+    won_str = "**Ty wygrałeś!**" if ti['winner'] == HUMAN else "**AI wygrało!**"
+    mar_info = ""
+    for seat, mar_pts in ti['marriages'].items():
+        if mar_pts:
+            who_mar = "Ty" if seat == HUMAN else "AI"
+            mar_info += f" · 💍{who_mar}+{mar_pts}"
 
-    won_str = "Ty wygrałeś!" if ti['winner'] == HUMAN else "AI wygrało!"
+    # Store trick summary for display on the next screen
+    s.last_trick_summary = (
+        f"Ty: {card_html(you_card, '1.2em')} &nbsp;vs&nbsp; "
+        f"AI: {card_html(ai_card, '1.2em')} &nbsp;→&nbsp; "
+        f"{won_str} +{ti['pts']} pkt{mar_info}")
 
-    tl, tc_col, tr = st.columns([2, 2, 2])
-    with tl:
-        st.markdown(f"Ty: {card_html(you_card, '1.6em')}", unsafe_allow_html=True)
-    with tc_col:
-        mar_info = ""
-        for seat, mar_pts in ti['marriages'].items():
-            if mar_pts:
-                who_mar = "Ty" if seat == HUMAN else "AI"
-                mar_info += f" · 💍{who_mar}+{mar_pts}"
-        st.markdown(f"**{won_str}** +{ti['pts']} pkt{mar_info}")
-    with tr:
-        st.markdown(f"AI: {card_html(ai_card, '1.6em')}", unsafe_allow_html=True)
-
-    if s.get('ai_msg'):
-        st.info(s.ai_msg)
-
-    if st.button("▶ Następna lewa", type="primary"):
-        after_trick_continue(rs, s.match_scores)
-        st.rerun()
-    st.stop()
+    # Auto-advance: draw + winner actions
+    after_trick_continue(rs, s.match_scores)
+    st.rerun()
 
 # ── human_winner_action ────────────────────────────────────────────────────────
 if s.stage == 'human_winner_action':
@@ -522,6 +511,14 @@ if s.stage in ('human_lead', 'human_follow'):
     is_lead  = (s.stage == 'human_lead')
     lc       = s.lead_card if not is_lead else None
 
+    # Show last trick result if available
+    if s.get('last_trick_summary'):
+        st.markdown(s.last_trick_summary, unsafe_allow_html=True)
+    if s.get('ai_msg'):
+        st.caption(s.ai_msg)
+    if s.get('drawn_msg'):
+        st.caption(s.drawn_msg)
+
     view       = rs.player_view(HUMAN, lead_card=lc, match_scores=s.match_scores)
     valid_idxs = {a.card_index for a in view.valid_actions
                   if a.type.value == 'play_card'}
@@ -535,9 +532,6 @@ if s.stage in ('human_lead', 'human_follow'):
                 pts = marriage_value(ms, rs.trump_suit)
                 hints.append(f"{ms.value} +{pts} pkt (zagraj K lub D, żeby ogłosić)")
             st.caption("💍 Dostępne meldunki: " + " | ".join(hints))
-
-    if s.get('drawn_msg'):
-        st.info(s.drawn_msg)
 
     action_text = ("**🧑 Twoje karty** — kliknij kartę, żeby wyjść:"
                    if is_lead
@@ -584,7 +578,7 @@ if s.stage in ('human_lead', 'human_follow'):
                 f"Ogłosiłeś meldunek {h_mar_suit.value} +{h_mar_pts} pkt")
 
         if leading:
-            # Human led — now AI follows
+            # Human led — show card on table, AI responds, resolve
             s.lead_card     = human_card
             s.lead_marriage = h_mar_suit
 
@@ -597,6 +591,19 @@ if s.stage in ('human_lead', 'human_follow'):
                     f"AI ogłosiło meldunek {ai_mar_suit.value} +{ai_mar_pts} pkt")
 
             winner, pts = do_resolve(rs, HUMAN, human_card, ai_card)
+
+            # Build table summary: your card shown first ("on the table")
+            mar_info = ""
+            if h_mar_pts:
+                mar_info += f" · 💍Ty+{h_mar_pts}"
+            if ai_mar_pts:
+                mar_info += f" · 💍AI+{ai_mar_pts}"
+            won_str = "**Ty wygrałeś!**" if winner == HUMAN else "**AI wygrało!**"
+            s.last_trick_summary = (
+                f"Zagrałeś: {card_html(human_card, '1.2em')} &nbsp;↔&nbsp; "
+                f"AI: {card_html(ai_card, '1.2em')} &nbsp;→&nbsp; "
+                f"{won_str} +{pts} pkt{mar_info}")
+
             s.trick_info = {
                 'cards':     {HUMAN: human_card, AI: ai_card},
                 'winner':    winner,
@@ -608,6 +615,16 @@ if s.stage in ('human_lead', 'human_follow'):
             leader_card   = s.lead_card
             follow_card   = human_card
             winner, pts   = do_resolve(rs, AI, leader_card, follow_card)
+
+            mar_info = ""
+            if h_mar_pts:
+                mar_info += f" · 💍Ty+{h_mar_pts}"
+            won_str = "**Ty wygrałeś!**" if winner == HUMAN else "**AI wygrało!**"
+            s.last_trick_summary = (
+                f"AI: {card_html(leader_card, '1.2em')} &nbsp;↔&nbsp; "
+                f"Ty: {card_html(follow_card, '1.2em')} &nbsp;→&nbsp; "
+                f"{won_str} +{pts} pkt{mar_info}")
+
             s.trick_info  = {
                 'cards':     {AI: leader_card, HUMAN: follow_card},
                 'winner':    winner,
