@@ -284,7 +284,18 @@ def after_trick_continue(state: RoundState, ms: dict):
 # Page setup & state init
 # ──────────────────────────────────────────────────────────────────────────────
 
-st.set_page_config(page_title="Sixty-Six", page_icon="🃏", layout="centered")
+st.set_page_config(page_title="Sześćdziesiąt Sześć", page_icon="🃏", layout="centered")
+
+# Reduce default Streamlit padding for a more compact layout
+st.markdown("""
+<style>
+    .block-container { padding-top: 1rem; padding-bottom: 0rem; }
+    [data-testid="stMetric"] { padding: 0; }
+    [data-testid="stMetricValue"] { font-size: 1.4rem; }
+    [data-testid="stMetricDelta"] { font-size: 0.85rem; }
+    .stDivider { margin: 0.3rem 0; }
+</style>
+""", unsafe_allow_html=True)
 
 if 'stage' not in st.session_state:
     st.session_state.stage         = 'welcome'
@@ -342,17 +353,23 @@ Grasz przeciwko komputerowi.
 
 rs = s.rs
 
-# Score row
-c1, c2, c3 = st.columns([2, 1, 2])
+# Score + game info — single compact row
+c1, c2, c3 = st.columns([3, 3, 2])
 with c1:
-    st.metric("🧑 Ty  (duże punkty)", s.match_scores[HUMAN],
-              delta=f"wynik rundy: {rs.scores[HUMAN]}")
+    st.markdown(
+        f"**{s.match_scores[HUMAN]} – {s.match_scores[AI]}** "
+        f"(rundy: {rs.scores[HUMAN]} – {rs.scores[AI]})")
 with c2:
-    st.markdown("<div style='text-align:center; padding-top:1.8em;'>vs</div>",
-                unsafe_allow_html=True)
+    phase_label = "Faza 2" if rs.phase == 2 else "Faza 1"
+    closed_tag = " 🔒" if rs.closed else ""
+    st.markdown(f"{phase_label}{closed_tag} · Kart w talonie: {len(rs.draw_pile)}")
 with c3:
-    st.metric("🤖 AI  (duże punkty)", s.match_scores[AI],
-              delta=f"wynik rundy: {rs.scores[AI]}")
+    trump_color = "#cc0000" if rs.trump_suit in (Suit.HEARTS, Suit.DIAMONDS) else "#111"
+    trump_disp = card_html(rs.trump_card, size='1.4em') if rs.trump_card else f'<span style="font-size:1.4em; color:{trump_color}; font-weight:bold;">{rs.trump_suit.value}</span>'
+    st.markdown(f"Atu: {trump_disp}", unsafe_allow_html=True)
+
+if rs.last_trick_info:
+    st.caption(rs.last_trick_info)
 
 st.divider()
 
@@ -408,36 +425,7 @@ if s.stage == 'match_over':
         st.rerun()
     st.stop()
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Trump card & game info
-# ──────────────────────────────────────────────────────────────────────────────
 
-info_col, trump_col = st.columns([3, 1])
-with info_col:
-    phase_label = "Faza 2 — obowiązek koloru" if rs.phase == 2 else "Faza 1 — otwarta"
-    closed_tag  = " · **ZAMKNIĘTA** 🔒" if rs.closed else ""
-    st.markdown(f"**{phase_label}**{closed_tag} &nbsp;·&nbsp; Stos: **{len(rs.draw_pile)}**")
-    if rs.last_trick_info:
-        st.caption(f"Ostatnia lewa: {rs.last_trick_info}")
-with trump_col:
-    if rs.trump_card:
-        st.markdown(
-            f"**Karta atu:**<br>{card_html(rs.trump_card, size='1.8em')}",
-            unsafe_allow_html=True)
-    else:
-        st.markdown(f"**Kolor atu:** {rs.trump_suit.value}")
-
-st.divider()
-
-# ──────────────────────────────────────────────────────────────────────────────
-# AI hand (face down)
-# ──────────────────────────────────────────────────────────────────────────────
-
-ai_cards = len(rs.hands[AI])
-st.markdown(f"**🤖 Ręka AI** ({ai_cards} {karta(ai_cards)}): "
-            + "  ".join([FACE_DOWN] * ai_cards))
-
-st.divider()
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Table (trick area)
@@ -456,22 +444,18 @@ if s.stage == 'trick_shown':
 
     won_str = "Ty wygrałeś!" if ti['winner'] == HUMAN else "AI wygrało!"
 
-    tl, tc_col, tr = st.columns([2, 1, 2])
+    tl, tc_col, tr = st.columns([2, 2, 2])
     with tl:
-        st.markdown(card_html(you_card, "3em"), unsafe_allow_html=True)
-        st.caption("Ty")
+        st.markdown(f"Ty: {card_html(you_card, '1.6em')}", unsafe_allow_html=True)
     with tc_col:
-        st.markdown(
-            f"<div style='text-align:center; padding-top:.6em;'>"
-            f"<b>{won_str}<br>+{ti['pts']} pkt</b></div>",
-            unsafe_allow_html=True)
+        mar_info = ""
         for seat, mar_pts in ti['marriages'].items():
             if mar_pts:
                 who_mar = "Ty" if seat == HUMAN else "AI"
-                st.caption(f"💍 {who_mar} +{mar_pts}")
+                mar_info += f" · 💍{who_mar}+{mar_pts}"
+        st.markdown(f"**{won_str}** +{ti['pts']} pkt{mar_info}")
     with tr:
-        st.markdown(card_html(ai_card, "3em"), unsafe_allow_html=True)
-        st.caption("AI")
+        st.markdown(f"AI: {card_html(ai_card, '1.6em')}", unsafe_allow_html=True)
 
     if s.get('ai_msg'):
         st.info(s.ai_msg)
@@ -520,12 +504,12 @@ if s.stage == 'human_winner_action':
 
 # ── Show lead card if human is following ──────────────────────────────────────
 if s.stage == 'human_follow' and s.lead_card is not None:
-    st.markdown("**AI zagrało:**")
-    st.markdown(card_html(s.lead_card, size="3em"), unsafe_allow_html=True)
+    mar_extra = ""
     if s.lead_marriage:
         mar_pts = marriage_value(s.lead_marriage, rs.trump_suit)
-        st.caption(f"💍 AI ogłasza meldunek {s.lead_marriage.value} +{mar_pts} pkt!")
-    st.markdown("---")
+        mar_extra = f" · 💍 meldunek {s.lead_marriage.value} +{mar_pts} pkt!"
+    st.markdown(f"AI zagrało: {card_html(s.lead_card, size='1.6em')}{mar_extra}",
+                unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Human hand — card buttons
@@ -553,9 +537,9 @@ if s.stage in ('human_lead', 'human_follow'):
     if s.get('drawn_msg'):
         st.info(s.drawn_msg)
 
-    action_text = ("**🧑 Twoja ręka** — kliknij kartę, żeby wyjść:"
+    action_text = ("**🧑 Twoje karty** — kliknij kartę, żeby wyjść:"
                    if is_lead
-                   else "**🧑 Twoja ręka** — kliknij kartę, żeby odpowiedzieć:")
+                   else "**🧑 Twoje karty** — kliknij kartę, żeby odpowiedzieć:")
     st.markdown(action_text)
 
     cols = st.columns(len(hand))
