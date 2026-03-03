@@ -410,7 +410,7 @@ c1, c2 = st.columns([3, 5])
 with c1:
     st.markdown(
         f'<span style="font-size:1.6em; font-weight:bold;">{rs.scores[HUMAN]} – {rs.scores[AI]}</span>'
-        f'&nbsp; <span style="font-size:0.9em; color:#666;">'
+        f'&nbsp; <span style="font-size:0.9em; opacity:0.5;">'
         f'(duże punkty: {s.match_scores[HUMAN]} – {s.match_scores[AI]})</span>',
         unsafe_allow_html=True)
 with c2:
@@ -510,14 +510,18 @@ if s.stage == 'trick_cards':
 
     def _card_box(card: Card, is_winner: bool, label: str) -> str:
         color  = "#cc0000" if is_red(card) else "inherit"
-        bg     = "#fffde7" if is_winner else "#f0f0f0"
-        border = "2px solid #f9a825" if is_winner else "1px solid #ccc"
+        if is_winner:
+            bg     = "rgba(249, 168, 37, 0.15)"
+            border = "2px solid #f9a825"
+        else:
+            bg     = "rgba(128, 128, 128, 0.1)"
+            border = "1px solid rgba(128, 128, 128, 0.3)"
         badge  = "&nbsp;★" if is_winner else ""
         opacity = "1.0" if is_winner else "0.6"
         return (
             f'<div style="text-align:center; padding:12px; background:{bg}; '
             f'border-radius:10px; border:{border}; opacity:{opacity};">'
-            f'<div style="font-size:0.85em; color:#666; margin-bottom:6px;">{label}{badge}</div>'
+            f'<div style="font-size:0.85em; color:inherit; opacity:0.6; margin-bottom:6px;">{label}{badge}</div>'
             f'<div style="font-size:3em; color:{color}; font-weight:bold;">{clabel(card)}</div>'
             f'</div>'
         )
@@ -625,9 +629,9 @@ if s.stage == 'human_follow' and s.lead_card is not None:
         mar_pts = marriage_value(s.lead_marriage, rs.trump_suit)
         mar_extra = f'<div style="font-size:0.85em; margin-top:4px;">💍+{mar_pts} pkt</div>'
     st.markdown(
-        f'<div style="text-align:center; padding:12px; background:#f0f0f0; '
-        f'border-radius:10px; border:1px solid #ccc;">'
-        f'<div style="font-size:0.85em; color:#666; margin-bottom:6px;">AI</div>'
+        f'<div style="text-align:center; padding:12px; background:rgba(128,128,128,0.1); '
+        f'border-radius:10px; border:1px solid rgba(128,128,128,0.3);">'
+        f'<div style="font-size:0.85em; color:inherit; opacity:0.6; margin-bottom:6px;">AI</div>'
         f'<div style="font-size:3em; color:{color}; font-weight:bold;">{clabel(card)}</div>'
         f'{mar_extra}</div>',
         unsafe_allow_html=True,
