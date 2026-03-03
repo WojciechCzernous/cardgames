@@ -401,7 +401,8 @@ with c2:
     trump_html = card_html(rs.trump_card, size='1.4em') if rs.trump_card else f'<span style="font-size:1.4em; color:{trump_color}; font-weight:bold;">{rs.trump_suit.value}</span>'
     if rs.closed or rs.phase == 2:
         closed_tag = " 🔒" if rs.closed else ""
-        st.markdown(f"Talon zamknięty{closed_tag} — {n_pile} {karta(n_pile)}.", unsafe_allow_html=True)
+        suit_html = f'<span style="font-size:1.4em; color:{trump_color}; font-weight:bold;">{rs.trump_suit.value}</span>'
+        st.markdown(f"Talon zamknięty{closed_tag} — {n_pile} {karta(n_pile)}. Atu: {suit_html}", unsafe_allow_html=True)
     else:
         st.markdown(f"Talon otwarty — {n_pile} {karta(n_pile)} + atu: {trump_html}", unsafe_allow_html=True)
 
