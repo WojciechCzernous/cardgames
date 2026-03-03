@@ -228,8 +228,8 @@ def advance(state: RoundState, ms: dict):
         s.lead_card     = card
         s.lead_marriage = mar_suit
         if mar_pts:
-            s.game_log.append(f"AI ogłosiło mariaż {mar_suit.value} +{mar_pts} pkt")
-            s.ai_msg = f"AI zagrało {clabel(card)} i ogłosiło mariaż {mar_suit.value} (+{mar_pts} pkt)!"
+            s.game_log.append(f"AI ogłosiło meldunek {mar_suit.value} +{mar_pts} pkt")
+            s.ai_msg = f"AI zagrało {clabel(card)} i ogłosiło meldunek {mar_suit.value} (+{mar_pts} pkt)!"
         else:
             s.ai_msg = ""
         s.stage = 'human_follow'
@@ -313,7 +313,7 @@ Witaj! **Sześćdziesiąt Sześć** to jedna ze starszych gier karcianych.
 Do Polski gra ta dotrała pod koniec XVII wieku, we francuskiej formie i pod nazwą mariasza; jej warianty znane były także jako gaigel i sznaps. 
 (patrz: Lech Pijanowski, "Przewodnik gier", wyd. Iskry, 1973, Warszawa; str. 281-283).
 
-                Grasz przeciwko komputerowi.
+Grasz przeciwko komputerowi.
 
 ### Zasady
 | Karta | Punkty |
@@ -326,8 +326,8 @@ Do Polski gra ta dotrała pod koniec XVII wieku, we francuskiej formie i pod naz
 | Dziewiątka | 0 |
 
 - **Atut** bije wszystkie inne kolory; wyższa figura wygrywa w tym samym kolorze.
-- **Mariaż** (Król + Dama w tym samym kolorze): 20 pkt (mariaż atutowy: 40 pkt).
-  Ogłoś mariaż, wychodząc Królem lub Damą, gdy trzymasz oboje.
+- **Meldunek** (Król + Dama w tym samym kolorze): 20 pkt (meldunek atutowy: 40 pkt).
+  Ogłoś meldunek, wychodząc Królem lub Damą, gdy trzymasz oboje.
 - **Faza 1** (stos aktywny): zagraj dowolną kartę; obaj gracze dobierają kartę po każdej lewie.
   Zwycięzca lewy może wymienić dziewiątkę atutową za odkrytą kartę atu lub zamknąć grę.
 - **Faza 2** (stos wyczerpany lub gra zamknięta): obowiązek koloru → obowiązek atu → dowolna.
@@ -527,7 +527,7 @@ if s.stage == 'human_follow' and s.lead_card is not None:
     st.markdown(card_html(s.lead_card, size="3em"), unsafe_allow_html=True)
     if s.lead_marriage:
         mar_pts = marriage_value(s.lead_marriage, rs.trump_suit)
-        st.caption(f"💍 AI ogłasza mariaż {s.lead_marriage.value} +{mar_pts} pkt!")
+        st.caption(f"💍 AI ogłasza meldunek {s.lead_marriage.value} +{mar_pts} pkt!")
     st.markdown("---")
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -551,7 +551,7 @@ if s.stage in ('human_lead', 'human_follow'):
             for ms in marriages:
                 pts = marriage_value(ms, rs.trump_suit)
                 hints.append(f"{ms.value} +{pts} pkt (zagraj K lub D, żeby ogłosić)")
-            st.caption("💍 Dostępne mariaże: " + " | ".join(hints))
+            st.caption("💍 Dostępne meldunki: " + " | ".join(hints))
 
     if s.get('drawn_msg'):
         st.info(s.drawn_msg)
@@ -593,7 +593,7 @@ if s.stage in ('human_lead', 'human_follow'):
 
         if h_mar_pts:
             s.game_log.append(
-                f"Ogłosiłeś mariaż {h_mar_suit.value} +{h_mar_pts} pkt")
+                f"Ogłosiłeś meldunek {h_mar_suit.value} +{h_mar_pts} pkt")
 
         if leading:
             # Human led — now AI follows
@@ -606,7 +606,7 @@ if s.stage in ('human_lead', 'human_follow'):
                                                             is_leading=False)
             if ai_mar_pts:
                 s.game_log.append(
-                    f"AI ogłosiło mariaż {ai_mar_suit.value} +{ai_mar_pts} pkt")
+                    f"AI ogłosiło meldunek {ai_mar_suit.value} +{ai_mar_pts} pkt")
 
             winner, pts = do_resolve(rs, HUMAN, human_card, ai_card)
             s.trick_info = {
