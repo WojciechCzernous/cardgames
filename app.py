@@ -304,6 +304,10 @@ def after_trick_continue(state: RoundState, ms: dict):
                 exec_action(state, AI, act)
                 s.ai_msg = "AI zamknęło grę!"
                 s.game_log.append("AI zamknęło grę!")
+                s.lead_card = None
+                s.lead_marriage = None
+                s.stage = 'ai_closed'
+                return
             else:
                 s.ai_msg = ""
 
@@ -464,6 +468,20 @@ if s.stage == 'match_over':
     st.stop()
 
 
+
+# ── ai_closed — flash AI-closed message for 1 second ─────────────────────────
+if s.stage == 'ai_closed':
+    st.markdown(
+        '<div style="text-align:center; padding:28px 8px;">'
+        '<div style="font-size:2.4em; font-weight:bold;">🔒</div>'
+        '<div style="font-size:1.4em; font-weight:bold; margin-top:8px;">'
+        'AI zamknęło talon!</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    time.sleep(1)
+    s.stage = 'pre_turn'
+    st.rerun()
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Table (trick area)
