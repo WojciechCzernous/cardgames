@@ -685,8 +685,9 @@ if s.stage in ('human_lead', 'human_follow'):
         if is_valid and new_card and card == new_card:
             css_rules.append(
                 f'div[data-testid="stColumn"]:nth-of-type({i+1}) button {{\n'
-                f'  background-color: #e3f2fd !important;\n'
+                f'  background-color: rgba(66, 165, 245, 0.25) !important;\n'
                 f'  border: 2px solid #42a5f5 !important;\n'
+                f'  box-shadow: 0 0 6px rgba(66, 165, 245, 0.5) !important;\n'
                 f'}}'
             )
     if css_rules:
