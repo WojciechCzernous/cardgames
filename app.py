@@ -294,6 +294,8 @@ st.markdown("""
     [data-testid="stMetricValue"] { font-size: 1.4rem; }
     [data-testid="stMetricDelta"] { font-size: 0.85rem; }
     .stDivider { margin: 0.3rem 0; }
+    /* Larger card button text */
+    div[data-testid="stColumn"] button p { font-size: 1.4rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
