@@ -509,7 +509,7 @@ if s.stage == 'trick_points':
             mar_parts.append(f"💍 {who} +{mar_pts}")
     mar_line = ("<br><span style='font-size:1em;'>" + " &nbsp;·&nbsp; ".join(mar_parts) + "</span>") if mar_parts else ""
 
-    won_label = "Ty wygrałeś lewę!" if winner == HUMAN else "AI wygrało lewę."
+    won_label = "Zabierasz lewę!" if winner == HUMAN else "AI zabiera lewę."
     pts_color = "#2e7d32" if winner == HUMAN else "#c62828"
     st.markdown(
         f'<div style="text-align:center; padding:24px 8px;">'
