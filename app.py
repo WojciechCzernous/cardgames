@@ -667,25 +667,22 @@ if s.stage in ('human_lead', 'human_follow'):
     st.markdown(action_text)
 
     # Inject per-button CSS to color red suits and highlight new card
-    # Streamlit renders each button's key in a parent div's id attribute
+    # Only style valid (enabled) cards; disabled ones stay default grey
     new_card = rs.last_drawn.get(HUMAN)
     css_rules = []
     for i, card in enumerate(hand):
-        selectors = []
-        if is_red(card):
-            selectors.append(f'color: #cc0000 !important;')
-        if new_card and card == new_card:
-            # Highlight the newly drawn card with a distinct background
+        is_valid = (i in valid_idxs)
+        if is_valid and is_red(card):
+            css_rules.append(
+                f'div[data-testid="stColumn"]:nth-of-type({i+1}) button p {{\n'
+                f'  color: #cc0000 !important;\n'
+                f'}}'
+            )
+        if is_valid and new_card and card == new_card:
             css_rules.append(
                 f'div[data-testid="stColumn"]:nth-of-type({i+1}) button {{\n'
                 f'  background-color: #e3f2fd !important;\n'
                 f'  border: 2px solid #42a5f5 !important;\n'
-                f'}}'
-            )
-        if selectors:
-            css_rules.append(
-                f'div[data-testid="stColumn"]:nth-of-type({i+1}) button p {{\n'
-                f'  {"".join(selectors)}\n'
                 f'}}'
             )
     if css_rules:
