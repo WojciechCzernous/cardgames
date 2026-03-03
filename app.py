@@ -61,6 +61,36 @@ def pkt_meczu(n: int) -> str:
 def card_btn_label(c: Card) -> str:
     return f"{RANK_DISP[c.rank]}{c.suit.value}"
 
+
+def render_table_cards(cards: dict, result_text: str = "", prefix: str = "tbl"):
+    """Show cards on the table as disabled buttons with result text."""
+    # CSS to color red-suit table buttons
+    css = ""
+    col_idx = 0
+    entries = []  # list of (label, col_position)
+    for who, card in cards.items():
+        col_idx += 1
+        label = f"{who}: {card_btn_label(card)}"
+        entries.append((label, card, col_idx))
+
+    n_cols = len(entries) + (1 if result_text else 0)
+    cols = st.columns(n_cols)
+    css_rules = []
+    for i, (label, card, _) in enumerate(entries):
+        with cols[i]:
+            st.button(label, key=f"{prefix}_{i}_{clabel(card)}",
+                      disabled=True, use_container_width=True)
+        if is_red(card):
+            # This is approximate — targets the nth column's disabled button
+            css_rules.append(
+                f'div[data-testid="stColumns"]:has(button[data-testid="stBaseButton-secondary"][disabled]) '
+                f'> div[data-testid="stColumn"]:nth-of-type({i+1}) button p {{ color: #cc0000 !important; }}')
+    if result_text:
+        with cols[-1]:
+            st.markdown(result_text)
+    if css_rules:
+        st.markdown(f"<style>{''.join(css_rules)}</style>", unsafe_allow_html=True)
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Game-logic helpers (inlined from game.py to allow step-by-step control)
 # ──────────────────────────────────────────────────────────────────────────────
@@ -456,41 +486,60 @@ if s.stage == 'trick_shown':
     after_trick_continue(rs, s.match_scores)
     st.rerun()
 
-# ── human_winner_action ────────────────────────────────────────────────────────
+# ── human_winner_action ── show table cards + action buttons + hand ─────────────
 if s.stage == 'human_winner_action':
-    st.success("🏆 Wygrałeś lewę!")
+    # Show trick summary as table cards
+    if s.get('trick_info'):
+        ti = s.trick_info
+        you_card = ti['cards'][HUMAN]
+        ai_card  = ti['cards'][AI]
+        won_str = "Wygrana!" if ti['winner'] == HUMAN else "Przegrana"
+        render_table_cards({"Ty": you_card, "AI": ai_card},
+                           result_text=f"**{won_str}** +{ti['pts']} pkt",
+                           prefix="wa_tbl")
+
     if s.get('drawn_msg'):
-        st.info(s.drawn_msg)
+        st.caption(s.drawn_msg)
 
     view      = rs.player_view(HUMAN, is_winner_action=True,
                                match_scores=s.match_scores)
     has_swap  = any(a.type.value == "swap_trump" for a in view.valid_actions)
 
-    st.markdown("**Opcjonalne akcje przed wyjściem:**")
-    wa1, wa2, wa3 = st.columns(3)
-
+    # Action buttons in a compact row
+    acols = []
+    if has_swap:
+        acols.append('swap')
+    acols.append('close')
+    acols.append('pass')
+    cols_wa = st.columns(len(acols))
     acted = False
-    with wa1:
-        if has_swap and st.button("🔄 Wymień 9 za atu", use_container_width=True):
-            old = rs.trump_card
-            exec_action(rs, HUMAN, Action(ActionType.SWAP_TRUMP))
-            s.game_log.append(f"Wymieniłeś 9 → {clabel(old)}")
-            acted = True
-    with wa2:
-        if not acted and st.button("🔒 Zamknij grę", use_container_width=True):
-            exec_action(rs, HUMAN, Action(ActionType.CLOSE_GAME))
-            s.game_log.append("Zamknąłeś grę!")
-            acted = True
-    with wa3:
-        if not acted and st.button("⏭ Pas", use_container_width=True,
-                                   type="primary"):
-            acted = True
+    for ci, atype in enumerate(acols):
+        with cols_wa[ci]:
+            if atype == 'swap' and st.button("🔄 Wymień 9↔atu", use_container_width=True):
+                old = rs.trump_card
+                exec_action(rs, HUMAN, Action(ActionType.SWAP_TRUMP))
+                s.game_log.append(f"Wymieniłeś 9 → {clabel(old)}")
+                acted = True
+            elif atype == 'close' and not acted and st.button("🔒 Zamknij", use_container_width=True):
+                exec_action(rs, HUMAN, Action(ActionType.CLOSE_GAME))
+                s.game_log.append("Zamknąłeś grę!")
+                acted = True
+            elif atype == 'pass' and not acted and st.button("▶ Graj dalej", use_container_width=True, type="primary"):
+                acted = True
 
     if acted:
         s.lead_card     = None
         s.lead_marriage = None
         s.stage = 'pre_turn'
         st.rerun()
+
+    # Show the hand (read-only)
+    hand = rs.hands[HUMAN]
+    hand_cols = st.columns(len(hand))
+    for i, card in enumerate(hand):
+        with hand_cols[i]:
+            st.button(card_btn_label(card), key=f"wah_{i}_{clabel(card)}",
+                      disabled=True, use_container_width=True)
     st.stop()
 
 # ── Show lead card if human is following ──────────────────────────────────────
@@ -498,9 +547,8 @@ if s.stage == 'human_follow' and s.lead_card is not None:
     mar_extra = ""
     if s.lead_marriage:
         mar_pts = marriage_value(s.lead_marriage, rs.trump_suit)
-        mar_extra = f" · 💍 meldunek {s.lead_marriage.value} +{mar_pts} pkt!"
-    st.markdown(f"AI zagrało: {card_html(s.lead_card, size='1.6em')}{mar_extra}",
-                unsafe_allow_html=True)
+        mar_extra = f" · 💍+{mar_pts} pkt"
+    render_table_cards({"AI": s.lead_card}, result_text=mar_extra, prefix="ai_lead")
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Human hand — card buttons
@@ -511,9 +559,21 @@ if s.stage in ('human_lead', 'human_follow'):
     is_lead  = (s.stage == 'human_lead')
     lc       = s.lead_card if not is_lead else None
 
-    # Show last trick result if available
-    if s.get('last_trick_summary'):
-        st.markdown(s.last_trick_summary, unsafe_allow_html=True)
+    # Show last trick result as table card buttons
+    if s.get('trick_info') and s.get('last_trick_summary'):
+        ti = s.trick_info
+        you_card = ti['cards'].get(HUMAN)
+        ai_card  = ti['cards'].get(AI)
+        if you_card and ai_card:
+            won_str = "Wygrana!" if ti['winner'] == HUMAN else "Przegrana"
+            mar_info = ""
+            for seat, mar_pts in ti['marriages'].items():
+                if mar_pts:
+                    who_mar = "Ty" if seat == HUMAN else "AI"
+                    mar_info += f" · 💍{who_mar}+{mar_pts}"
+            render_table_cards({"Ty": you_card, "AI": ai_card},
+                               result_text=f"**{won_str}** +{ti['pts']} pkt{mar_info}",
+                               prefix="prev")
     if s.get('ai_msg'):
         st.caption(s.ai_msg)
     if s.get('drawn_msg'):
